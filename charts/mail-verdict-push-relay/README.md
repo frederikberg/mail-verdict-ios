@@ -1,7 +1,7 @@
 # mail-verdict-push-relay
 
 A Helm chart for the relay that forwards encrypted push notifications to Apple on behalf of any
-self-hosted [MailVerdict](https://github.com/frederikb96/mail-verdict) server — see
+self-hosted [MailVerdict](https://github.com/frederikberg/mail-verdict) server — see
 `../../relay/README.md` for the API contract and what the service itself does and does not see.
 This chart is generic: it makes no assumption about whose cluster it runs on or which ingress
 controller fronts it. It does assume the installer is the app's publisher, since only the
@@ -33,7 +33,7 @@ You need:
 Pull straight from GHCR with your own values — no `helm repo add` needed:
 
 ```
-helm install mail-verdict-push-relay oci://ghcr.io/frederikb96/charts/mail-verdict-push-relay \
+helm install mail-verdict-push-relay oci://ghcr.io/frederikberg/charts/mail-verdict-push-relay \
   --version 0.1.0 \
   --namespace mail-verdict-push-relay --create-namespace \
   -f my-values.yaml
@@ -86,7 +86,7 @@ the same package stays public; nothing in CI needs to repeat this.
 
 No hardcoded hostname, bundle id, or ingress class — `ingress.host`, `apns.bundleId` and
 `ingress.className` are all empty by default and either required or fall back to your cluster's
-own default. The container image is public (`ghcr.io/frederikb96/mail-verdict-push-relay`, no
+own default. The container image is public (`ghcr.io/frederikberg/mail-verdict-push-relay`, no
 auth needed to pull), so the chart needs zero `imagePullSecrets`.
 
 ## Observability

@@ -182,7 +182,7 @@ jobs:
       - name: Fetch mail-verdict main's own contract snapshot over the vendored one
         run: |
           dest=MailVerdictKit/Tests/MailVerdictKitTests/Fixtures/api-contract
-          base=https://raw.githubusercontent.com/frederikb96/mail-verdict/main/docs/api-contract
+          base=https://raw.githubusercontent.com/frederikberg/mail-verdict/main/docs/api-contract
           curl -fsSL "$base/openapi.json" -o "$dest/openapi.json"
           curl -fsSL "$base/sse-events.json" -o "$dest/sse-events.json"
 

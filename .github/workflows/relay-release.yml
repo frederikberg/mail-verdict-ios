@@ -57,7 +57,7 @@ jobs:
       - name: Package and push
         run: |
           helm package charts/mail-verdict-push-relay --destination dist
-          helm push dist/mail-verdict-push-relay-*.tgz oci://ghcr.io/frederikb96/charts
+          helm push dist/mail-verdict-push-relay-*.tgz oci://ghcr.io/frederikberg/charts
 
   build-image:
     runs-on: ubuntu-latest
