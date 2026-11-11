@@ -1,10 +1,10 @@
 # MailVerdict for iOS
 
-[![Free checks](https://github.com/frederikb96/mail-verdict-ios/actions/workflows/free-checks.yml/badge.svg)](https://github.com/frederikb96/mail-verdict-ios/actions/workflows/free-checks.yml)
-[![Release](https://img.shields.io/github/v/release/frederikb96/mail-verdict-ios)](https://github.com/frederikb96/mail-verdict-ios/releases)
+[![Free checks](https://github.com/frederikberg/mail-verdict-ios/actions/workflows/free-checks.yml/badge.svg)](https://github.com/frederikberg/mail-verdict-ios/actions/workflows/free-checks.yml)
+[![Release](https://img.shields.io/github/v/release/frederikberg/mail-verdict-ios)](https://github.com/frederikberg/mail-verdict-ios/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Native SwiftUI client for [MailVerdict](https://github.com/frederikb96/mail-verdict), a
+Native SwiftUI client for [MailVerdict](https://github.com/frederikberg/mail-verdict), a
 self-hosted mail client with an AI spam layer. This app talks to a MailVerdict backend over its
 REST and SSE API — it never speaks IMAP or SMTP itself, and the web UI there is the source of
 truth for what this app ports.

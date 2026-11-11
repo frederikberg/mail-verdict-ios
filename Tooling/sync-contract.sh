@@ -17,7 +17,7 @@ fi
 sha="$1"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$root/MailVerdictKit/Tests/MailVerdictKitTests/Fixtures/api-contract"
-base_url="https://raw.githubusercontent.com/frederikb96/mail-verdict/$sha/docs/api-contract"
+base_url="https://raw.githubusercontent.com/frederikberg/mail-verdict/$sha/docs/api-contract"
 
 mkdir -p "$dest"
 

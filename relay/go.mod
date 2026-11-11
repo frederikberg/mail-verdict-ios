@@ -1,4 +1,4 @@
-module github.com/frederikb96/mail-verdict-ios/relay
+module github.com/frederikberg/mail-verdict-ios/relay
 
 go 1.27.1
 

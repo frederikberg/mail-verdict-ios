@@ -5,7 +5,7 @@
 # the full walkthrough and ../../relay/README.md for what the service itself does.
 
 image:
-  repository: ghcr.io/frederikb96/mail-verdict-push-relay
+  repository: ghcr.io/frederikberg/mail-verdict-push-relay
   # Empty: defaults to .Chart.AppVersion. Set explicitly to pin a different tag.
   tag: ""
   pullPolicy: IfNotPresent
