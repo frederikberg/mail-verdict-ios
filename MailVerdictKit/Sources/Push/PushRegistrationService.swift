@@ -33,7 +33,7 @@ public struct PushRegistrationService: Sendable {
     /// The relay this build is paired with. Only this app's publisher can sign pushes for its
     /// bundle id, so every MailVerdict server sends through this one address, and a server must
     /// list it in `push.apns_relay_urls` for this app to register there.
-    public static let relayURL = "https://mailverdict-push.frederikberg.net"
+    public static let relayURL = "https://push.frederikberg.net"
 
     private let backend: any PushBackend
     private let relay: any PushRelayRegistering

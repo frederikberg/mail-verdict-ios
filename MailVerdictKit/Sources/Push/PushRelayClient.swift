@@ -44,11 +44,15 @@ public protocol PushRelayRegistering: Sendable {
     func register(apnsToken: String) async throws -> PushTicket
 }
 
-/// `POST /v1/register` on the push relay (its contract: `relay/README.md` in this repository).
+/// `POST /v1/register` on the shared push relay (frederikberg/push-relay), which serves several apps
+/// and tells them apart by the app id sent with the registration.
 ///
 /// The relay takes no credential and is a different service from the MailVerdict server, so this
 /// deliberately does not go through `MVApiClient`: the backend's credential must never reach it.
 public struct PushRelayClient: PushRelayRegistering {
+    /// The relay's id for this app.
+    static let appId = "mailverdict"
+
     public let baseURL: URL
     private let session: URLSession
 
@@ -61,7 +65,7 @@ public struct PushRelayClient: PushRelayRegistering {
         var request = URLRequest(url: baseURL.appendingPathComponent("v1/register"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(["apns_token": apnsToken])
+        request.httpBody = try JSONEncoder().encode(["apns_token": apnsToken, "app": Self.appId])
 
         let data: Data
         let response: URLResponse

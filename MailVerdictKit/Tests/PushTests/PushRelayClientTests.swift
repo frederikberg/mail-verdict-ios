@@ -56,7 +56,7 @@ final class PushRelayClientTests: XCTestCase {
 
     func testRegistersTheTokenAndReadsTheRelaysOwnResponseShape() async throws {
         RelayStubURLProtocol.status = 200
-        // Exactly what the relay's Go handler writes: RFC 3339 in UTC, no fractional seconds.
+        // The shape the relay writes: RFC 3339 in UTC, no fractional seconds.
         RelayStubURLProtocol.body = Data(
             #"{"ticket":"AQ-sealed","ticket_id":"0123456789abcdef","expires_at":"2026-12-11T10:00:00Z"}"#.utf8)
 
@@ -64,7 +64,7 @@ final class PushRelayClientTests: XCTestCase {
 
         XCTAssertEqual(RelayStubURLProtocol.captured?.url?.absoluteString, "https://relay.example/v1/register")
         let sent = try JSONDecoder().decode([String: String].self, from: RelayStubURLProtocol.capturedBody ?? Data())
-        XCTAssertEqual(sent, ["apns_token": "a1b2c3d4"])
+        XCTAssertEqual(sent, ["apns_token": "a1b2c3d4", "app": "mailverdict"])
         XCTAssertEqual(ticket.ticket, "AQ-sealed")
         XCTAssertEqual(ticket.expiresAt, Date(timeIntervalSince1970: 1_796_983_200))
     }
