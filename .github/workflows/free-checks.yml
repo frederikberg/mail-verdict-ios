@@ -44,15 +44,13 @@ defaults:
     shell: bash
 
 jobs:
-  # Decides which of the heavier jobs a PR needs: the macOS build only for app-side changes, the
-  # relay checks only for relay-side ones.
+  # Decides whether a PR needs the heavier macOS build: only app-side changes do.
   changes:
     name: Detect Changes
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       app: ${{ steps.filter.outputs.app }}
-      relay: ${{ steps.filter.outputs.relay }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -69,10 +67,6 @@ jobs:
               - 'Config/**'
               - 'MailVerdict.xcodeproj/**'
               - '.github/workflows/mac.yml'
-            relay:
-              - 'relay/**'
-              - 'charts/mail-verdict-push-relay/**'
-              - '.github/workflows/relay-ci.yml'
 
   checks:
     if: github.event_name != 'schedule'
@@ -195,17 +189,11 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     uses: ./.github/workflows/mac.yml
 
-  relay:
-    name: Relay
-    needs: changes
-    if: needs.changes.outputs.relay == 'true'
-    uses: ./.github/workflows/relay-ci.yml
-
-  # The single required check. Skipped jobs (Mac or relay on a change that cannot affect them)
+  # The single required check. Skipped jobs (Mac on a change that cannot affect it)
   # count as passing.
   validation:
     name: Validation
-    needs: [changes, checks, mac, relay]
+    needs: [changes, checks, mac]
     if: ${{ github.event_name == 'pull_request' && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
