@@ -10,6 +10,12 @@ struct SettingsScreen: View {
 
     @State private var accountOrderStore: MVAccountOrderStore?
 
+    /// The server-wide categories this user may open, in the order the screen lists them; none for
+    /// an ordinary user, and none until the server has said who is signed in.
+    private var adminCategories: [MVSettingsCategory] {
+        [.orders, .ai, .assistant, .semantic, .retry, .pipeline].filter { connection.me.canOpen($0) }
+    }
+
     var body: some View {
         Form {
             Section("Appearance") {
@@ -30,14 +36,12 @@ struct SettingsScreen: View {
                 NavigationLink("Outbox", value: Route.settingsCategory(MVSettingsCategory.outbox.rawValue))
             }
 
-            Section("Advanced") {
-                NavigationLink("Orders", value: Route.settingsCategory(MVSettingsCategory.orders.rawValue))
-                NavigationLink("Spam Verdicts", value: Route.settingsCategory(MVSettingsCategory.ai.rawValue))
-                NavigationLink(
-                    "Rule Assistant", value: Route.settingsCategory(MVSettingsCategory.assistant.rawValue))
-                NavigationLink("Semantic Search", value: Route.settingsCategory(MVSettingsCategory.semantic.rawValue))
-                NavigationLink("Retry", value: Route.settingsCategory(MVSettingsCategory.retry.rawValue))
-                NavigationLink("Pipeline", value: Route.settingsCategory(MVSettingsCategory.pipeline.rawValue))
+            if !adminCategories.isEmpty {
+                Section("Advanced") {
+                    ForEach(adminCategories, id: \.rawValue) { category in
+                        NavigationLink(category.displayTitle, value: Route.settingsCategory(category.rawValue))
+                    }
+                }
             }
 
             Section("Accounts") {
@@ -46,6 +50,13 @@ struct SettingsScreen: View {
 
             Section("Connection") {
                 LabeledContent("Server", value: environment.backendURL)
+                if let me = connection.me.me {
+                    LabeledContent("Signed in as", value: me.displayName)
+                    if let email = me.email {
+                        LabeledContent("Email", value: email)
+                    }
+                    LabeledContent("Role", value: me.isAdmin ? "Administrator" : "User")
+                }
                 Button("Sign Out", role: .destructive) {
                     environment.signOut()
                 }

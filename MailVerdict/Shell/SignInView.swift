@@ -2,7 +2,10 @@ import MailVerdictKit
 import SwiftUI
 import UIKit
 
-/// Backend address and credential entry.
+/// Backend address and sign-in.
+///
+/// The server's own sign-in (Zitadel) is the way in; a pasted token, basic auth or no credential at
+/// all stay under Advanced for installs without one.
 ///
 /// One screen serves two situations, because the fields are the same and only the explanation
 /// differs. They are kept as distinct cases rather than one flag, so a rejected credential can say
@@ -34,6 +37,10 @@ struct SignInView: View {
     @State private var failed = false
     @State private var testResult: String?
     @State private var testing = false
+    @State private var coordinator = OidcSignInCoordinator()
+    @State private var signingIn = false
+    @State private var signInMessage: String?
+    @State private var showAdvanced = false
     @FocusState private var tokenFocused: Bool
 
     var body: some View {
@@ -66,55 +73,37 @@ struct SignInView: View {
                         .accessibilityIdentifier("signin-url")
                 }
 
-                Section("Authentication") {
-                    Picker("Mode", selection: $mode) {
-                        ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .accessibilityIdentifier("signin-mode")
-
-                    switch mode {
-                    case .none:
-                        Text("No credential is sent — a LAN, Tailscale or VPN install with no proxy.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    case .bearer:
-                        // Nobody types an access token, so paste has to be the obvious path — but
-                        // the field is still secure, because the value is a long-lived credential.
-                        SecureField("Paste the access token", text: $token)
-                            .textContentType(.password)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .focused($tokenFocused)
-                            .accessibilityIdentifier("signin-token")
-                        Button("Paste from clipboard") {
-                            if let pasted = UIPasteboard.general.string {
-                                token = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+                Section {
+                    Button {
+                        Task { await signInWithServer() }
+                    } label: {
+                        HStack {
+                            Text("Sign in with Zitadel")
+                            if signingIn {
+                                Spacer()
+                                ProgressView()
                             }
                         }
-                        .accessibilityIdentifier("signin-paste")
-                    case .basic:
-                        TextField("Username", text: $username)
-                            .textContentType(.username)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .accessibilityIdentifier("signin-username")
-                        SecureField("Password", text: $password)
-                            .textContentType(.password)
-                            .accessibilityIdentifier("signin-password")
                     }
-
-                    if sendsCredentialOverCleartext {
-                        Label {
-                            Text(
-                                "This address is http, not https — the \(mode == .bearer ? "token" : "username and password") will travel in the clear."
-                            )
+                    .disabled(url.isEmpty || signingIn)
+                    .accessibilityIdentifier("signin-oidc")
+                    if let signInMessage {
+                        Text(signInMessage)
                             .font(.footnote)
+                            .foregroundStyle(.red)
+                            .accessibilityIdentifier("signin-oidc-message")
+                    }
+                    if urlIsCleartext {
+                        Label {
+                            Text("This address is http, not https — what you sign in with will travel in the clear.")
+                                .font(.footnote)
                         } icon: {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(.orange)
                         }
-                        .accessibilityIdentifier("signin-cleartext-warning")
                     }
+                } footer: {
+                    Text("Opens your server's sign-in page. You stay signed in on this iPhone until you sign out.")
                 }
 
                 if failed {
@@ -124,20 +113,80 @@ struct SignInView: View {
                 }
 
                 Section {
-                    Button("Test Connection") { Task { await testConnection() } }
-                        .disabled(url.isEmpty || testing)
-                        .accessibilityIdentifier("signin-test")
-                    if testing {
-                        Text("Checking…").font(.footnote).foregroundStyle(.secondary)
-                    } else if let testResult {
-                        Text(testResult).font(.footnote).foregroundStyle(.secondary)
+                    Button(showAdvanced ? "Hide advanced options" : "Advanced: token, password or none") {
+                        showAdvanced.toggle()
                     }
+                    .accessibilityIdentifier("signin-advanced")
                 }
 
-                Section {
-                    Button("Connect") { connect() }
-                        .disabled(url.isEmpty || !isCredentialFilled)
-                        .accessibilityIdentifier("signin-connect")
+                if showAdvanced {
+                    Section("Authentication") {
+                        Picker("Mode", selection: $mode) {
+                            ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .accessibilityIdentifier("signin-mode")
+
+                        switch mode {
+                        case .none:
+                            Text("No credential is sent — a LAN, Tailscale or VPN install with no proxy.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        case .bearer:
+                            // Nobody types an access token, so paste has to be the obvious path — but
+                            // the field is still secure, because the value is a long-lived credential.
+                            SecureField("Paste the access token", text: $token)
+                                .textContentType(.password)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .focused($tokenFocused)
+                                .accessibilityIdentifier("signin-token")
+                            Button("Paste from clipboard") {
+                                if let pasted = UIPasteboard.general.string {
+                                    token = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+                                }
+                            }
+                            .accessibilityIdentifier("signin-paste")
+                        case .basic:
+                            TextField("Username", text: $username)
+                                .textContentType(.username)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .accessibilityIdentifier("signin-username")
+                            SecureField("Password", text: $password)
+                                .textContentType(.password)
+                                .accessibilityIdentifier("signin-password")
+                        }
+
+                        if sendsCredentialOverCleartext {
+                            Label {
+                                Text(
+                                    "This address is http, not https — the \(mode == .bearer ? "token" : "username and password") will travel in the clear."
+                                )
+                                .font(.footnote)
+                            } icon: {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                            }
+                            .accessibilityIdentifier("signin-cleartext-warning")
+                        }
+                    }
+
+                    Section {
+                        Button("Test Connection") { Task { await testConnection() } }
+                            .disabled(url.isEmpty || testing)
+                            .accessibilityIdentifier("signin-test")
+                        if testing {
+                            Text("Checking…").font(.footnote).foregroundStyle(.secondary)
+                        } else if let testResult {
+                            Text(testResult).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Section {
+                        Button("Connect") { connect() }
+                            .disabled(url.isEmpty || !isCredentialFilled)
+                            .accessibilityIdentifier("signin-connect")
+                    }
                 }
             }
             .navigationTitle(title)
@@ -146,13 +195,14 @@ struct SignInView: View {
             // Prefilled rather than blank: on a rejection the address is definitely right and
             // only the credential needs replacing. On first launch there is nothing to prefill.
             if url.isEmpty { url = environment.backendURL }
-            if case .rejected = reason { tokenFocused = true }
         }
     }
 
-    private var sendsCredentialOverCleartext: Bool {
-        mode != .none && url.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("http://")
+    private var urlIsCleartext: Bool {
+        url.trimmingCharacters(in: .whitespaces).lowercased().hasPrefix("http://")
     }
+
+    private var sendsCredentialOverCleartext: Bool { mode != .none && urlIsCleartext }
 
     private var isCredentialFilled: Bool {
         switch mode {
@@ -164,7 +214,7 @@ struct SignInView: View {
 
     private var title: String {
         switch reason {
-        case .firstLaunch: "Connect"
+        case .firstLaunch: "Sign in"
         case .rejected: "Sign in again"
         }
     }
@@ -174,6 +224,26 @@ struct SignInView: View {
         case .none: return .none
         case .bearer: return .bearer(token: token.trimmingCharacters(in: .whitespacesAndNewlines))
         case .basic: return .basic(username: username, password: password)
+        }
+    }
+
+    /// The server's own sign-in. A server without one sends the person to the manual modes.
+    private func signInWithServer() async {
+        signingIn = true
+        signInMessage = nil
+        defer { signingIn = false }
+        do {
+            switch try await coordinator.signIn(backendURL: url) {
+            case .signedIn(let tokens):
+                failed = !environment.signIn(backendURL: url, mode: .oidc(tokens))
+            case .cancelled:
+                break
+            }
+        } catch let failure as OidcSignInCoordinator.Failure {
+            signInMessage = failure.message
+            if failure.unavailable { showAdvanced = true }
+        } catch {
+            signInMessage = error.mvUserMessage
         }
     }
 

@@ -115,12 +115,36 @@
 
         /// A client for the connection the app signed in with, for code running outside the app's
         /// own connection: the share extension, and the Shortcuts app asking for a list to pick
-        /// from. `nil` when signed out.
+        /// from. `nil` when signed out. An OIDC sign-in comes back with a client that renews its own
+        /// access token, so an extension launched long after the app last ran still gets through.
         public func signedInClient() -> MVApiClient? {
-            guard let url = readBackendURL(), let mode = read(),
-                let factory = try? MVRequestFactory(baseURL: url, authProvider: { mode })
-            else { return nil }
+            guard let url = readBackendURL(), let mode = read() else { return nil }
+            if case .oidc(let tokens) = mode {
+                let holder = MVOidcTokenHolder(tokens)
+                guard let factory = try? MVRequestFactory(baseURL: url, authProvider: { holder.authMode })
+                else { return nil }
+                return MVApiClient(
+                    requestFactory: factory, credentialRefresher: tokenRefresher(holder: holder))
+            }
+            guard let factory = try? MVRequestFactory(baseURL: url, authProvider: { mode }) else { return nil }
             return MVApiClient(requestFactory: factory)
+        }
+
+        /// The one renewer of an OIDC sign-in, for the app and every extension alike: it stores each
+        /// new token set here and reads this store before renewing, so the processes sharing the
+        /// item spend each refresh token once between them.
+        public func tokenRefresher(holder: MVOidcTokenHolder) -> MVTokenRefresher {
+            MVTokenRefresher(
+                holder: holder,
+                // A refresh that finishes after sign-out must not write the session back.
+                persist: { tokens in
+                    guard case .oidc? = read() else { return }
+                    _ = write(.oidc(tokens))
+                },
+                reload: {
+                    if case .oidc(let tokens)? = read() { return tokens }
+                    return nil
+                })
         }
 
         /// Publishes the backend address for the share extension; `nil` removes it. The app's own
