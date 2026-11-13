@@ -16,9 +16,11 @@ public struct MVApiClient: Sendable {
     private let urlSession: URLSession
     private let onAuthenticationFailure: (@Sendable (MVError) -> Void)?
     private let readRetry: MVReadRetryPolicy
+    private let credentialRefresher: (any MVCredentialRefreshing)?
 
     /// `onAuthenticationFailure` is called whenever the server refuses the credential, before the
-    /// error is thrown to the caller.
+    /// error is thrown to the caller. With a `credentialRefresher`, a refused credential is first
+    /// refreshed and the request sent once more; the callback fires only when that did not help.
     ///
     /// It exists because the alternative does not work: a first-load path is full of calls whose
     /// failure is genuinely not worth surfacing, so they discard the error — and an expired token
@@ -28,12 +30,14 @@ public struct MVApiClient: Sendable {
         requestFactory: MVRequestFactory,
         urlSession: URLSession = .mvDefault,
         onAuthenticationFailure: (@Sendable (MVError) -> Void)? = nil,
-        readRetry: MVReadRetryPolicy = MVReadRetryPolicy()
+        readRetry: MVReadRetryPolicy = MVReadRetryPolicy(),
+        credentialRefresher: (any MVCredentialRefreshing)? = nil
     ) {
         self.requestFactory = requestFactory
         self.urlSession = urlSession
         self.onAuthenticationFailure = onAuthenticationFailure
         self.readRetry = readRetry
+        self.credentialRefresher = credentialRefresher
     }
 
     // MARK: Core request helper
@@ -167,23 +171,68 @@ public struct MVApiClient: Sendable {
         path: String, method: String, query: [URLQueryItem], body: Data?, contentType: String?,
         timeout: TimeInterval? = nil
     ) async throws -> (Data, URLResponse) {
+        guard let credentialRefresher else {
+            let sent = try await transmit(
+                path: path, method: method, query: query, body: body, contentType: contentType, timeout: timeout)
+            return (sent.data, sent.response)
+        }
+        await credentialRefresher.refreshIfNeeded()
+        let first = try await transmit(
+            path: path, method: method, query: query, body: body, contentType: contentType, timeout: timeout)
+        guard let http = first.response as? HTTPURLResponse,
+            MVError.from(statusCode: http.statusCode, body: first.data).isAuthenticationFailure
+        else { return (first.data, first.response) }
+
+        // The refused request never ran (a 401, or the proxy's 403 in front of the app), so
+        // sending it again after a refresh cannot repeat a write.
+        switch await credentialRefresher.refresh(afterRejectionOf: first.bearerToken) {
+        case .refreshed:
+            let second = try await transmit(
+                path: path, method: method, query: query, body: body, contentType: contentType,
+                timeout: timeout)
+            return (second.data, second.response)
+        case .rejected:
+            return (first.data, first.response)
+        case .unavailable:
+            // Not being able to reach the provider says nothing about the credential: surfacing
+            // the 401 would sign the user out over a bad connection.
+            throw MVError.transport("The sign-in could not be renewed. Check the connection and try again.")
+        }
+    }
+
+    /// One answered request, with the bearer token it went out under — the token a refresh must
+    /// treat as rejected, which is not necessarily the current one by the time the answer lands.
+    private struct Transmitted {
+        let data: Data
+        let response: URLResponse
+        let bearerToken: String?
+    }
+
+    private func transmit(
+        path: String, method: String, query: [URLQueryItem], body: Data?, contentType: String?,
+        timeout: TimeInterval?
+    ) async throws -> Transmitted {
         var request = try requestFactory.makeRequest(
             path: path, method: method, query: query, body: body, contentType: contentType
         )
+        let bearer = request.mvBearerToken
         let isRead = method == "GET"
         if let timeout {
             request.timeoutInterval = timeout
         } else if isRead {
             request.timeoutInterval = readRetry.readTimeout
         }
-        guard isRead else { return try await urlSession.data(for: request) }
+        guard isRead else {
+            let (data, response) = try await urlSession.data(for: request)
+            return Transmitted(data: data, response: response, bearerToken: bearer)
+        }
         var delays = readRetry.delays[...]
         while true {
             do {
                 let (data, response) = try await urlSession.data(for: request)
                 guard let delay = delays.first, let http = response as? HTTPURLResponse,
                     MVReadRetryPolicy.isTransient(statusCode: http.statusCode)
-                else { return (data, response) }
+                else { return Transmitted(data: data, response: response, bearerToken: bearer) }
                 delays.removeFirst()
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             } catch  where !delays.isEmpty && MVReadRetryPolicy.isTransient(error) {
@@ -209,7 +258,7 @@ public struct MVApiClient: Sendable {
         }
         guard (200..<300).contains(http.statusCode) else {
             let error = MVError.from(statusCode: http.statusCode, body: data)
-            if error.isAuthenticationFailure { onAuthenticationFailure?(error) }
+            if error.endsSession { onAuthenticationFailure?(error) }
             throw error
         }
         // A 200 whose body is HTML rather than JSON is the same login-proxy case without a

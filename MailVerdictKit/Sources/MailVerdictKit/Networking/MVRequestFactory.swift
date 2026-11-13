@@ -87,10 +87,24 @@ public struct MVRequestFactory: Sendable {
         case .basic(let username, let password):
             let raw = Data("\(username):\(password)".utf8).base64EncodedString()
             request.setValue("Basic \(raw)", forHTTPHeaderField: "Authorization")
+        case .oidc(let tokens):
+            if !tokens.accessToken.isEmpty {
+                request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+            }
         }
         if let contentType {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         return request
+    }
+}
+
+extension URLRequest {
+    /// The token of an `Authorization: Bearer …` header, if the request carries one.
+    var mvBearerToken: String? {
+        guard let header = value(forHTTPHeaderField: "Authorization"), header.hasPrefix("Bearer ") else {
+            return nil
+        }
+        return String(header.dropFirst("Bearer ".count))
     }
 }

@@ -2,9 +2,9 @@
     import Foundation
     import Security
 
-    /// Where the backend's credential lives — none, a bearer token, or a basic-auth username and
-    /// password, encoded as JSON so one Keychain item holds whichever of the three this install
-    /// actually uses.
+    /// Where the backend's credential lives — none, a bearer token, a basic-auth username and
+    /// password, or an OIDC token set, encoded as JSON so one Keychain item holds whichever this
+    /// install actually uses.
     ///
     /// The Keychain is the only place on the device holding a secret; everything else the app
     /// remembers (the backend URL) is an ordinary preference and lives in `UserDefaults`. The URL
@@ -166,6 +166,9 @@
             case .none: return false
             case .bearer(let token): return token.isEmpty
             case .basic(let username, let password): return username.isEmpty && password.isEmpty
+            // A token set with neither token is unusable; one with only a refresh token is
+            // not, since the first request refreshes it.
+            case .oidc(let tokens): return tokens.accessToken.isEmpty && tokens.refreshToken == nil
             }
         }
     }

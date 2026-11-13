@@ -177,7 +177,7 @@ public final class ShareStore {
         guard let mvError = error as? MVError else { return false }
         switch mvError {
         case .transport, .proxyRequiresBrowserLogin: return true
-        case .detail, .http, .decoding: return mvError.isAuthenticationFailure
+        case .detail, .http, .decoding: return mvError.endsSession
         }
     }
 
@@ -188,7 +188,7 @@ public final class ShareStore {
             }
         }
         guard let mvError = error as? MVError else { return error.localizedDescription }
-        if mvError.isAuthenticationFailure || mvError == .proxyRequiresBrowserLogin {
+        if mvError.endsSession || mvError == .proxyRequiresBrowserLogin {
             return "MailVerdict could not sign in. Open the app, sign in, and share again."
         }
         switch mvError.statusCode {

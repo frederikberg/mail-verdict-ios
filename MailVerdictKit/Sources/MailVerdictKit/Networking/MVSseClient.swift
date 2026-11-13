@@ -68,6 +68,12 @@ public final class MVSseClient {
     private let requestFactory: MVRequestFactory
     private let urlSessionConfiguration: URLSessionConfiguration
     private let callbacks: Callbacks
+    private let credentialRefresher: (any MVCredentialRefreshing)?
+    private let onAuthenticationFailure: (@MainActor @Sendable () -> Void)?
+    /// Whether the last refusal was answered with a token refresh that has not yet been proven by
+    /// a connection. A second refusal after one means the new token is refused too, and the
+    /// session is over rather than something to refresh again.
+    private var refreshedAfterRefusal = false
 
     /// The last record id this client has seen, sent back as `Last-Event-ID` on reconnect so the
     /// server can replay anything missed — or answer `resync` when the gap is too large to
@@ -110,12 +116,16 @@ public final class MVSseClient {
         accountId: String? = nil,
         requestFactory: MVRequestFactory,
         callbacks: Callbacks,
-        urlSessionConfiguration: URLSessionConfiguration = .default
+        urlSessionConfiguration: URLSessionConfiguration = .default,
+        credentialRefresher: (any MVCredentialRefreshing)? = nil,
+        onAuthenticationFailure: (@MainActor @Sendable () -> Void)? = nil
     ) {
         self.accountId = accountId
         self.requestFactory = requestFactory
         self.callbacks = callbacks
         self.urlSessionConfiguration = urlSessionConfiguration
+        self.credentialRefresher = credentialRefresher
+        self.onAuthenticationFailure = onAuthenticationFailure
     }
 
     /// Names what this stream is being kept open for. Once set, the stream closes and stops
@@ -265,6 +275,7 @@ public final class MVSseClient {
                 }
                 switch event {
                 case .connected:
+                    refreshedAfterRefusal = false
                     connectionOpenedAt = Date()
                     lastEventTime = Date()
                     callbacks.onConnected()
@@ -288,9 +299,41 @@ public final class MVSseClient {
                 handleDisconnect(generation: attempt)
             }
         } catch {
-            if Self.shouldReconnectAfterStreamEnded(cancelled: Task.isCancelled, stopped: stopped) {
+            guard Self.shouldReconnectAfterStreamEnded(cancelled: Task.isCancelled, stopped: stopped) else { return }
+            if let credentialRefresher, case MVHttpByteStream.StreamError.unexpectedStatus(let status) = error,
+                status == 401 || status == 403
+            {
+                await handleRefusal(by: credentialRefresher, token: request.mvBearerToken, generation: attempt)
+            } else {
                 handleDisconnect(generation: attempt)
             }
+        }
+    }
+
+    /// The server or proxy refused the stream's token. The stream cannot tell the proxy's 403 from
+    /// the app's, so a 403 is treated like a 401: renew once and reconnect, and report a refusal
+    /// of the renewed token as the end of the session.
+    private func handleRefusal(
+        by refresher: any MVCredentialRefreshing, token: String?, generation attempt: UInt64
+    ) async {
+        guard !refreshedAfterRefusal else {
+            onAuthenticationFailure?()
+            handleDisconnect(generation: attempt)
+            return
+        }
+        let outcome = await refresher.refresh(afterRejectionOf: token)
+        guard attempt == generation, !stopped else { return }
+        switch outcome {
+        case .refreshed:
+            refreshedAfterRefusal = true
+            backoffNanos = Self.initialBackoffNanos
+            callbacks.onDisconnected()
+            scheduleAttempt(delayNanos: 0)
+        case .rejected:
+            onAuthenticationFailure?()
+            handleDisconnect(generation: attempt)
+        case .unavailable:
+            handleDisconnect(generation: attempt)
         }
     }
 

@@ -392,7 +392,15 @@ final class MVIntentLedgerRecoveryTests: XCTestCase {
             MVIntentDelivery.classify(MVError.decoding("x")), .delivered(affectedCount: nil, sources: []),
             "a 2xx with an unreadable body was applied")
         XCTAssertEqual(MVIntentDelivery.classify(MVError.detail("x", statusCode: 404)), .gone)
-        XCTAssertEqual(MVIntentDelivery.classify(MVError.detail("x", statusCode: 403)), .hold("x"))
+        XCTAssertEqual(MVIntentDelivery.classify(MVError.detail("x", statusCode: 401)), .hold("x"))
+        XCTAssertEqual(
+            MVIntentDelivery.classify(MVError.http(statusCode: 403, reason: "Forbidden")),
+            .hold("HTTP 403: Forbidden"), "the proxy's bare 403 is a rejected credential")
+        XCTAssertEqual(
+            MVIntentDelivery.classify(MVError.detail("user_disabled", statusCode: 403)), .hold("user_disabled"))
+        XCTAssertEqual(
+            MVIntentDelivery.classify(MVError.detail("admin_required", statusCode: 403)), .refused("admin_required"),
+            "the app's own 403 is about this request, not the credential")
         XCTAssertEqual(
             MVIntentDelivery.classify(MVError.proxyRequiresBrowserLogin),
             .hold(MVError.proxyRequiresBrowserLogin.userMessage))

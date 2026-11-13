@@ -122,6 +122,8 @@ public final class LiveEventHub {
         accountId: String? = nil,
         requestFactory: MVRequestFactory,
         urlSessionConfiguration: URLSessionConfiguration = .default,
+        credentialRefresher: (any MVCredentialRefreshing)? = nil,
+        onAuthenticationFailure: (@MainActor @Sendable () -> Void)? = nil,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.now = now
@@ -135,7 +137,9 @@ public final class LiveEventHub {
                 onConnected: { box.hub?.setConnectionState(.connected) },
                 onDisconnected: { box.hub?.handleStreamDisconnected() }
             ),
-            urlSessionConfiguration: urlSessionConfiguration
+            urlSessionConfiguration: urlSessionConfiguration,
+            credentialRefresher: credentialRefresher,
+            onAuthenticationFailure: onAuthenticationFailure
         )
         box.hub = self
         // Nothing but this hub reads the stream, and nothing but this hub can close it: a hub that

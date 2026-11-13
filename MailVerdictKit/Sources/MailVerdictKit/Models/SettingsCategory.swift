@@ -16,3 +16,20 @@ public enum MVSettingsCategory: String, Sendable, Equatable, CaseIterable {
     case mail
     case orders
 }
+
+extension MVSettingsCategory {
+    /// Categories only an admin may read or change: they configure what the server does for every
+    /// user (the model provider, the rule pipeline, the queues). Outbox and mail are a user's own.
+    /// The server enforces the same split; this decides what the app offers.
+    public var isAdminOnly: Bool {
+        switch self {
+        case .ai, .assistant, .retry, .pipeline, .semantic, .orders: return true
+        case .outbox, .mail: return false
+        }
+    }
+
+    /// The categories a user with this role is offered, in declaration order.
+    public static func available(isAdmin: Bool) -> [MVSettingsCategory] {
+        allCases.filter { isAdmin || !$0.isAdminOnly }
+    }
+}

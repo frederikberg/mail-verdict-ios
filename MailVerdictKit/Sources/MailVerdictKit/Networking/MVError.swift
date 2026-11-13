@@ -28,19 +28,42 @@ public enum MVError: Error, Equatable {
         }
     }
 
-    /// The server refused the credential rather than the request.
+    /// The server or the proxy in front of it refused the credential rather than the request.
     ///
-    /// Worth asking of the error rather than of a status code at each call site: every caller
-    /// that has to remember to check is a caller that can forget, and forgetting means the app
-    /// shows an empty screen instead of asking for a new token.
+    /// That is a 401, or a 403 that is not the app's own: the app answers every refusal with a
+    /// JSON `detail` (`.detail`), whereas the login proxy answers an invalid token with a bare
+    /// non-JSON 403 (`.http`). Worth asking of the error rather than of a status code at each
+    /// call site: every caller that has to remember to check is a caller that can forget, and
+    /// forgetting means the app shows an empty screen instead of asking for a new token.
     public var isAuthenticationFailure: Bool {
         switch self {
-        case .detail(_, let statusCode), .http(let statusCode, _):
-            return statusCode == 401 || statusCode == 403
+        case .detail(_, let statusCode): return statusCode == 401
+        case .http(let statusCode, _): return statusCode == 401 || statusCode == 403
         case .transport, .decoding, .proxyRequiresBrowserLogin:
             return false
         }
     }
+
+    /// The app itself refused this one request (a JSON 403): the credential is fine and the user
+    /// stays signed in, the request is simply not theirs to make.
+    public var isForbidden: Bool {
+        if case .detail(_, 403) = self { return true }
+        return false
+    }
+
+    /// The app refused because the signed-in user was disabled — the one 403 that ends the
+    /// session, since nothing the user does can make the next request succeed.
+    public var isDisabled: Bool {
+        if case .detail(Self.disabledDetail, 403) = self { return true }
+        return false
+    }
+
+    /// The `detail` the backend's auth middleware answers a disabled user with.
+    static let disabledDetail = "user_disabled"
+
+    /// Whether the app should treat this as the end of the session: a rejected credential, or a
+    /// disabled user.
+    public var endsSession: Bool { isAuthenticationFailure || isDisabled }
 
     /// What the user should see. Always non-empty.
     ///

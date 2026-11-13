@@ -127,5 +127,8 @@ public enum ContractRegistry {
         OrderDetachRequest.self,
         OrderCatchUpRequest.self,
         OrderCatchUpResponse.self,
+        // Me.swift
+        MeResponse.self,
+        AuthConfigResponse.self,
     ]
 }

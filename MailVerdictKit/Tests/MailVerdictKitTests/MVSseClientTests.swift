@@ -209,3 +209,93 @@ final class MVSseClientRetryPolicyTests: XCTestCase {
         XCTAssertTrue(MVSseClient.streamIsHealthy(openFor: MVSseClient.healthyStreamInterval))
     }
 }
+
+/// A refused stream under an OIDC session: renew the token once and reconnect with it; if the
+/// renewed token is refused too, report the end of the session.
+@MainActor
+final class MVSseClientRefusalTests: XCTestCase {
+
+    override func tearDown() {
+        MVStubURLProtocol.reset()
+        super.tearDown()
+    }
+
+    private final class FakeRefresher: MVCredentialRefreshing, @unchecked Sendable {
+        let holder: MVOidcTokenHolder
+        let outcome: MVRefreshOutcome
+        let calls = MVCallLog()
+        init(holder: MVOidcTokenHolder, outcome: MVRefreshOutcome) {
+            self.holder = holder
+            self.outcome = outcome
+        }
+        func refreshIfNeeded() async {}
+        func refresh(afterRejectionOf accessToken: String?) async -> MVRefreshOutcome {
+            calls.record(accessToken ?? "-")
+            if outcome == .refreshed {
+                holder.tokens = MVOidcFixtures.tokens(access: "access-2", refresh: "refresh-2")
+            }
+            return outcome
+        }
+    }
+
+    private func makeClient(
+        refresher: FakeRefresher, signedOut: MVCallLog, connected: MVStreamConnectionSignal
+    ) -> MVSseClient {
+        let holder = refresher.holder
+        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { holder.authMode })
+        return MVSseClient(
+            requestFactory: factory,
+            callbacks: .init(
+                onRecord: { _ in }, onActivity: {}, onConnected: { Task { await connected.fire() } },
+                onDisconnected: {}),
+            urlSessionConfiguration: MVStubURLProtocol.makeConfiguration(),
+            credentialRefresher: refresher,
+            onAuthenticationFailure: { signedOut.record("signed out") })
+    }
+
+    private func streamBearers() -> [String?] {
+        MVStubURLProtocol.capturedRequests.map { $0.value(forHTTPHeaderField: "Authorization") }
+    }
+
+    func testARefusedStreamRenewsTheTokenAndReconnectsWithIt() async {
+        let refresher = FakeRefresher(holder: MVOidcTokenHolder(MVOidcFixtures.tokens()), outcome: .refreshed)
+        MVStubURLProtocol.queue = [
+            MVOidcFixtures.jsonError(status: 401, detail: "not_authenticated"),
+            .init(statusCode: 200, headers: [:], body: Data(": ok\n\n".utf8)),
+        ]
+        let signedOut = MVCallLog()
+        let connected = MVStreamConnectionSignal()
+        let client = makeClient(refresher: refresher, signedOut: signedOut, connected: connected)
+        client.connect()
+        await connected.wait()
+        client.disconnect()
+
+        XCTAssertEqual(refresher.calls.all, ["access-1"])
+        XCTAssertEqual(streamBearers().prefix(2), ["Bearer access-1", "Bearer access-2"])
+        XCTAssertTrue(signedOut.all.isEmpty)
+    }
+
+    func testARefusalOfTheRenewedTokenSignsOutInsteadOfRefreshingAgain() async throws {
+        let refresher = FakeRefresher(holder: MVOidcTokenHolder(MVOidcFixtures.tokens()), outcome: .refreshed)
+        MVStubURLProtocol.stub = MVOidcFixtures.proxyForbidden
+        let signedOut = MVCallLog()
+        let client = makeClient(refresher: refresher, signedOut: signedOut, connected: MVStreamConnectionSignal())
+        client.connect()
+        for _ in 0..<200 where signedOut.all.isEmpty { try await Task.sleep(nanoseconds: 50_000_000) }
+        client.disconnect()
+
+        XCTAssertEqual(refresher.calls.all.count, 1, "one renewal, then the session is over")
+        XCTAssertEqual(signedOut.all, ["signed out"])
+    }
+
+    func testARejectedRefreshSignsOut() async throws {
+        let refresher = FakeRefresher(holder: MVOidcTokenHolder(MVOidcFixtures.tokens()), outcome: .rejected)
+        MVStubURLProtocol.stub = MVOidcFixtures.jsonError(status: 401, detail: "not_authenticated")
+        let signedOut = MVCallLog()
+        let client = makeClient(refresher: refresher, signedOut: signedOut, connected: MVStreamConnectionSignal())
+        client.connect()
+        for _ in 0..<200 where signedOut.all.isEmpty { try await Task.sleep(nanoseconds: 50_000_000) }
+        client.disconnect()
+        XCTAssertEqual(signedOut.all, ["signed out"])
+    }
+}
