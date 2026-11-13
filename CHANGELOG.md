@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Push registration goes to the shared push relay at `push.frederikberg.net` and names the app in
+  the request. The server's `push.apns_relay_urls` must list that URL.
+
+### Removed
+
+- The push relay and its Helm chart, which now live in their own repository.
+
 ## [0.15.4] - 2026-11-05
 
 ### Fixed
