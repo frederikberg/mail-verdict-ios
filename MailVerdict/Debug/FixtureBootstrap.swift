@@ -128,6 +128,12 @@ import MailVerdictKit
                 ),
             ]
 
+            // An administrator, so every settings screen a sweep visits is reachable.
+            register(
+                .get, "/api/me",
+                MeResponse(
+                    userId: UUID(uuidString: "00000000-0000-0000-0000-0000000a0001")!, email: "me@posteo.de",
+                    displayName: "Fixture Admin", role: .admin, disabled: false))
             register(.get, "/api/accounts", accounts)
             register(.get, "/api/accounts/\(accountId1)/folder-order", folders1)
             register(.get, "/api/accounts/\(accountId2)/folder-order", folders2)

@@ -105,6 +105,10 @@ final class AppEnvironment {
         /// `nil` in a fixture run, so one screenshot's reads never show in the next.
         let offlineCache: MVOfflineCache?
 
+        /// Who is signed in and whether they administer the server; what decides which settings
+        /// screens are offered.
+        let me: MeStore
+
         /// Whether the server can be reached, as every screen shows it.
         @MainActor var reachability: MVReachability {
             #if DEBUG
@@ -158,6 +162,7 @@ final class AppEnvironment {
     func handleAuthenticationFailure(detail: String?) {
         connection?.liveEventHub.disconnect()
         connection?.intentLedger.stop()
+        connection?.me.clear()
         credentials.write(nil)
         credentials.writeBackendURL(nil)
         connection = nil
@@ -168,6 +173,7 @@ final class AppEnvironment {
     func signOut() {
         connection?.liveEventHub.disconnect()
         connection?.intentLedger.stop()
+        connection?.me.clear()
         // Signed out, no mail stays on the device; the instance ignores any save still on its way.
         if let offlineCache = connection?.offlineCache { Task { await offlineCache.discard() } }
         MVOfflineCache.removeAll(under: Self.offlineCacheBase)
@@ -207,6 +213,8 @@ final class AppEnvironment {
         case .active:
             connection?.liveEventHub.resume()
             connection?.intentLedger.resume()
+            // A role change announces nothing on the stream.
+            if let me = connection?.me { Task { await me.load() } }
         default: break
         }
     }
@@ -240,25 +248,39 @@ final class AppEnvironment {
 
     @discardableResult
     private func connect() -> Bool {
-        guard
-            let factory = try? MVRequestFactory(
-                baseURL: backendURL,
-                authProvider: { [credentials] in credentials.read() ?? .none }
-            )
-        else {
+        // An OIDC session keeps its token set in one holder the request factory reads at send time,
+        // so a renewed access token reaches the next request without a Keychain lookup; the
+        // refresher stores each renewal and is shared by the API client and the live stream.
+        var refresher: MVTokenRefresher?
+        let authProvider: @Sendable () -> MVAuthMode
+        if case .oidc(let tokens)? = credentials.read() {
+            let holder = MVOidcTokenHolder(tokens)
+            refresher = credentials.tokenRefresher(holder: holder)
+            authProvider = { holder.authMode }
+        } else {
+            authProvider = { [credentials] in credentials.read() ?? .none }
+        }
+        guard let factory = try? MVRequestFactory(baseURL: backendURL, authProvider: authProvider) else {
             return false
         }
 
         // Weak, and hopped to the main actor: the callback fires from whatever task made the
         // request, and a strong reference here would be a retain cycle through the client the
         // connection holds.
-        let client = MVApiClient(requestFactory: factory) { [weak self] error in
-            Task { @MainActor [weak self] in
-                self?.handleAuthenticationFailure(detail: error.userMessage)
-            }
-        }
+        let client = MVApiClient(
+            requestFactory: factory,
+            onAuthenticationFailure: { [weak self] error in
+                Task { @MainActor [weak self] in
+                    self?.handleAuthenticationFailure(detail: error.userMessage)
+                }
+            },
+            credentialRefresher: refresher)
 
-        let liveEventHub = LiveEventHub(requestFactory: factory)
+        let liveEventHub = LiveEventHub(
+            requestFactory: factory, credentialRefresher: refresher,
+            onAuthenticationFailure: { [weak self] in
+                self?.handleAuthenticationFailure(detail: "Your sign-in has ended.")
+            })
         liveEventHub.connect()
 
         let membership = MailboxesUnifiedMembership()
@@ -281,13 +303,16 @@ final class AppEnvironment {
         let intentLedger = MVIntentLedger(
             transport: client, persistence: Self.intentPersistence(serverURL: backendURL),
             connectivity: connectivity, toasts: toasts)
+        let me = MeStore(apiClient: client)
+        me.subscribeToLive(liveEventHub)
+        Task { await me.load() }
         connection = Connection(
             requestFactory: factory, apiClient: client, liveEventHub: liveEventHub,
             imageLoader: MVAuthenticatedImageLoader(apiClient: client), membership: membership,
             placeResolver: MVMessagePlaceResolver(apiClient: client, membershipLookup: membership),
             referenceCache: referenceCache, threadCache: threadCache, intentLedger: intentLedger,
             networkStatus: MVNetworkStatus(connectivity: connectivity),
-            offlineCache: offlineCache)
+            offlineCache: offlineCache, me: me)
         lastAuthFailure = nil
         // Every launch with a stored credential comes through here, so an install that predates
         // the share extension publishes its address on first launch after the update.

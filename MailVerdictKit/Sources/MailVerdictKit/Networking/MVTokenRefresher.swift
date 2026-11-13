@@ -45,12 +45,15 @@ public final class MVOidcTokenHolder: @unchecked Sendable {
 /// Single-flight: however many requests find the token expired or refused at once, the provider
 /// is asked once and all of them take its answer. That matters beyond tidiness — Zitadel rotates
 /// refresh tokens, so two simultaneous refreshes with the same one would leave the loser holding
-/// a token the winner just retired. For the same reason only the app process refreshes; the
-/// extensions read the stored credential and stop at a refusal.
+/// a token the winner just retired. The app, the share extension and the Shortcuts intents are
+/// separate processes sharing one stored token set, so a refresh first looks at what the store
+/// holds (`reload`): a token set another process already renewed is taken as it is instead of
+/// spending the refresh token a second time.
 public actor MVTokenRefresher: MVCredentialRefreshing {
     private let holder: MVOidcTokenHolder
     private let client: MVOidcClient
     private let persist: @Sendable (MVOidcTokens) -> Void
+    private let reload: @Sendable () -> MVOidcTokens?
     private let now: @Sendable () -> Date
 
     private var metadata: MVOidcProviderMetadata?
@@ -61,13 +64,17 @@ public actor MVTokenRefresher: MVCredentialRefreshing {
 
     /// - Parameter persist: stores a new token set (the Keychain). Called before the new tokens
     ///   are put to use, so a crash between the two cannot lose a rotated refresh token.
+    /// - Parameter reload: the token set the store holds right now, `nil` when it holds none.
     public init(
         holder: MVOidcTokenHolder, client: MVOidcClient = MVOidcClient(),
-        persist: @escaping @Sendable (MVOidcTokens) -> Void, now: @escaping @Sendable () -> Date = { Date() }
+        persist: @escaping @Sendable (MVOidcTokens) -> Void,
+        reload: @escaping @Sendable () -> MVOidcTokens? = { nil },
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.holder = holder
         self.client = client
         self.persist = persist
+        self.reload = reload
         self.now = now
     }
 
@@ -91,6 +98,10 @@ public actor MVTokenRefresher: MVCredentialRefreshing {
     }
 
     private func renew() async -> MVRefreshOutcome {
+        if let stored = reload(), stored != holder.tokens {
+            holder.tokens = stored
+            if !stored.isExpired(at: now()) { return .refreshed }
+        }
         let tokens = holder.tokens
         guard tokens.refreshToken != nil else { return .rejected }
         do {

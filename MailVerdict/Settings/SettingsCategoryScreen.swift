@@ -20,7 +20,12 @@ struct SettingsCategoryScreen: View {
 
     var body: some View {
         Group {
-            if let resolvedCategory {
+            if let resolvedCategory, connection.me.me != nil, !connection.me.canOpen(resolvedCategory) {
+                // A restored navigation path or a stale link can land here without the Advanced
+                // section ever having been offered.
+                EmptyStateView(
+                    systemImage: "lock", message: "Only administrators can change these settings.")
+            } else if let resolvedCategory {
                 CategoryForm(
                     category: resolvedCategory, store: store, environment: environment,
                     focusedFieldKey: $focusedFieldKey

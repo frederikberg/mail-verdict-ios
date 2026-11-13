@@ -11,10 +11,15 @@ truth for what this app ports.
 
 ## Connecting
 
-On first launch, enter the backend's URL and, if the proxy in front of it needs one, a
-credential: a bearer token, or a username and password for basic auth. A LAN, Tailscale or VPN
-install with no proxy needs neither. Both are held on the device: the credential in the Keychain,
-everything else in `UserDefaults`.
+On first launch, enter the backend's URL and tap **Sign in with Zitadel**: the app asks the server
+which provider to use (`GET /api/auth/config`), opens it in the system browser sheet (PKCE, the
+redirect `mailverdict://auth/callback`) and keeps the session alive by refreshing the token, so
+you stay signed in until you sign out. The share extension and Shortcuts use the same session.
+Administrators see the server-wide settings under Advanced; ordinary users do not.
+
+Under **Advanced** a server without single sign-on takes a bearer token, a username and password
+for basic auth, or nothing (a LAN, Tailscale or VPN install with no proxy). The credential is held
+in the Keychain, everything else in `UserDefaults`.
 
 ## Reading offline
 

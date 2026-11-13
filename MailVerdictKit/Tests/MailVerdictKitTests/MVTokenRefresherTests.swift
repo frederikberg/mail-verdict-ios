@@ -22,13 +22,16 @@ final class MVTokenRefresherTests: XCTestCase {
     }
 
     private func makeRig(
-        tokens: MVOidcTokens = MVOidcFixtures.tokens(), now: @escaping @Sendable () -> Date = { Date() }
+        tokens: MVOidcTokens = MVOidcFixtures.tokens(),
+        reload: @escaping @Sendable () -> MVOidcTokens? = { nil },
+        now: @escaping @Sendable () -> Date = { Date() }
     ) -> Rig {
         let holder = MVOidcTokenHolder(tokens)
         let persisted = MVCallLog()
         let refresher = MVTokenRefresher(
             holder: holder, client: MVOidcClient(urlSession: MVStubURLProtocol.makeSession()),
-            persist: { persisted.record($0.accessToken + "/" + ($0.refreshToken ?? "-")) }, now: now)
+            persist: { persisted.record($0.accessToken + "/" + ($0.refreshToken ?? "-")) }, reload: reload,
+            now: now)
         return Rig(refresher: refresher, holder: holder, persisted: persisted)
     }
 
@@ -133,5 +136,34 @@ final class MVTokenRefresherTests: XCTestCase {
         let unstated = makeRig(tokens: MVOidcFixtures.tokens(expiresAt: nil), now: { now })
         await unstated.refresher.refreshIfNeeded()
         XCTAssertEqual(unstated.holder.tokens.accessToken, "access-1")
+    }
+
+    /// The share extension or an intent may have renewed the stored tokens while this process
+    /// slept; spending the refresh token again would be refused, since Zitadel retires it on use.
+    func testATokenSetAnotherProcessRenewedIsTakenWithoutAskingTheProvider() async {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let stored = MVOidcFixtures.tokens(
+            access: "access-2", refresh: "refresh-2", expiresAt: now.addingTimeInterval(3000))
+        let rig = makeRig(reload: { stored }, now: { now })
+        let outcome = await rig.refresher.refresh(afterRejectionOf: "access-1")
+        XCTAssertEqual(outcome, .refreshed)
+        XCTAssertEqual(rig.holder.tokens, stored)
+        XCTAssertEqual(tokenRequests(), 0)
+        XCTAssertTrue(rig.persisted.all.isEmpty)
+    }
+
+    func testAStoredTokenSetThatIsAlsoExpiredRefreshesWithItsNewerRefreshToken() async {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let stored = MVOidcFixtures.tokens(
+            access: "access-2", refresh: "refresh-2", expiresAt: now.addingTimeInterval(-10))
+        MVStubURLProtocol.stubsByPath = [
+            "/.well-known/openid-configuration": MVOidcFixtures.discovery(),
+            "/oauth/v2/token": MVOidcFixtures.tokenAnswer(access: "access-3", refresh: "refresh-3"),
+        ]
+        let rig = makeRig(reload: { stored }, now: { now })
+        _ = await rig.refresher.refresh(afterRejectionOf: "access-1")
+        let exchanged = MVOidcFixtures.requestBody(MVStubURLProtocol.capturedRequests.last)
+        XCTAssertTrue(exchanged.contains("refresh_token=refresh-2"), exchanged)
+        XCTAssertEqual(rig.holder.tokens.accessToken, "access-3")
     }
 }
