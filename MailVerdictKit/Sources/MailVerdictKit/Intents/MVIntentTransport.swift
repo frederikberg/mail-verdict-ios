@@ -110,7 +110,7 @@ enum MVIntentDelivery: Equatable {
         switch error {
         case .detail(_, let status), .http(let status, _):
             if status == 404 { return .gone }
-            if status == 401 || status == 403 { return .hold(error.userMessage) }
+            if error.endsSession { return .hold(error.userMessage) }
             if status == 408 || status == 425 || status == 429 {
                 return .retry(error.userMessage, mayHaveLanded: false)
             }

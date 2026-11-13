@@ -15,7 +15,8 @@ import PackageDescription
 // SwiftSoup is a pure-Swift HTML parser (the reader's document builder needs one, and it targets
 // Linux explicitly, which is why it was picked over anything that shells out to libxml2 or a
 // system WebKit). swift-crypto is linked on Linux only: it is Apple's CryptoKit API rebuilt for
-// platforms that lack it, so `PushEnvelope` uses CryptoKit on iOS and the same calls here.
+// platforms that lack it, so `PushEnvelope` and the sign-in's PKCE challenge use CryptoKit on iOS
+// and the same calls here.
 //
 // `PushEnvelope` is its own product because the notification service extension links it and
 // nothing else — an extension runs under a small memory budget, and everything in
@@ -35,7 +36,11 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "MailVerdictKit", dependencies: ["SwiftSoup"],
+            name: "MailVerdictKit",
+            dependencies: [
+                "SwiftSoup",
+                .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+            ],
             resources: [.copy("Reader/Resources/reader.js")]
         ),
         .target(

@@ -101,6 +101,33 @@ final class MVRequestFactoryTests: XCTestCase {
         XCTAssertTrue(raw.hasSuffix("/api/folders/a%2Fb"), raw)
         XCTAssertFalse(raw.contains("%25"), raw)
     }
+
+    func testOidcSendsTheAccessTokenAsBearer() throws {
+        let tokens = MVOidcTokens(accessToken: "access", refreshToken: "refresh", issuer: "https://i", clientId: "c")
+        let factory = try MVRequestFactory(baseURL: "https://mail.example.com", authProvider: { .oidc(tokens) })
+        let request = try factory.makeRequest(path: "/api/health")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access")
+        XCTAssertEqual(request.mvBearerToken, "access")
+    }
+
+    func testOidcTokenSetSurvivesTheKeychainsJsonEncoding() throws {
+        let mode = MVAuthMode.oidc(
+            MVOidcTokens(
+                accessToken: "a", refreshToken: "r", expiresAt: Date(timeIntervalSince1970: 1_700_000_000),
+                issuer: "https://i", clientId: "c"))
+        let decoded = try JSONDecoder().decode(MVAuthMode.self, from: try JSONEncoder().encode(mode))
+        XCTAssertEqual(decoded, mode)
+    }
+
+    func testTokenExpiryHonoursTheSkew() {
+        let now = Date(timeIntervalSince1970: 1000)
+        func tokens(_ expiresAt: Date?) -> MVOidcTokens {
+            MVOidcTokens(accessToken: "a", expiresAt: expiresAt, issuer: "i", clientId: "c")
+        }
+        XCTAssertTrue(tokens(now.addingTimeInterval(59)).isExpired(at: now))
+        XCTAssertFalse(tokens(now.addingTimeInterval(61)).isExpired(at: now))
+        XCTAssertFalse(tokens(nil).isExpired(at: now))
+    }
 }
 
 /// A `var` captured by an escaping sendable closure and mutated afterwards is a data race the
