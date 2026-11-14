@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Signing out revokes the refresh token at the identity provider, not only on the phone.
 - A server that revokes the device (`401` with `device_revoked`) signs the app out at once, and the
   sign-in screen says "This device was signed out".
+- Releases reach TestFlight external testers: the build is attached to the external group, given
+  its "What to Test" text and submitted to Beta App Review.
 
 ### Changed
 
