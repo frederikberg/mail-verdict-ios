@@ -30,7 +30,7 @@ final class MVApiClientOidcTests: XCTestCase {
             holder: holder, client: MVOidcClient(urlSession: session), persist: { _ in })
         let signedOut = MVCallLog()
         let factory = try MVRequestFactory(
-            baseURL: "https://mail.example.com", authProvider: { holder.authMode })
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone", authProvider: { holder.tokens })
         let client = MVApiClient(
             requestFactory: factory, urlSession: session,
             onAuthenticationFailure: { signedOut.record($0.userMessage) },
@@ -88,6 +88,22 @@ final class MVApiClientOidcTests: XCTestCase {
         }
         XCTAssertEqual(bearers(), ["Bearer access-1", "Bearer access-2"])
         XCTAssertEqual(rig.signedOut.all.count, 1)
+    }
+
+    /// A revoked device is refused for the device, not the token, so asking the provider for a new
+    /// token would only repeat the refusal: the session ends at once, with the device message.
+    func testARevokedDeviceSignsOutWithoutRefreshing() async throws {
+        let rig = try makeRig()
+        MVStubURLProtocol.queue = [MVOidcFixtures.jsonError(status: 401, detail: "device_revoked")]
+        do {
+            _ = try await rig.client.getMe()
+            XCTFail("expected an error")
+        } catch let error as MVError {
+            XCTAssertTrue(error.isDeviceRevoked)
+            XCTAssertEqual(error.userMessage, "This device was signed out")
+        }
+        XCTAssertEqual(MVStubURLProtocol.capturedPaths, ["/api/me"])
+        XCTAssertEqual(rig.signedOut.all, ["This device was signed out"])
     }
 
     func testARefusedRefreshTokenSignsOutAfterOneTokenRequest() async throws {
@@ -161,7 +177,7 @@ final class MVApiClientOidcTests: XCTestCase {
         let refresher = MVTokenRefresher(
             holder: holder, client: MVOidcClient(urlSession: session), persist: { _ in })
         let factory = try MVRequestFactory(
-            baseURL: "https://mail.example.com", authProvider: { holder.authMode })
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone", authProvider: { holder.tokens })
         let client = MVApiClient(
             requestFactory: factory, urlSession: session, credentialRefresher: refresher)
         MVStubURLProtocol.queue = [
@@ -173,12 +189,12 @@ final class MVApiClientOidcTests: XCTestCase {
         XCTAssertEqual(bearers(), ["Bearer access-2"])
     }
 
-    /// Without a refresher (none, bearer, basic) a JSON 403 no longer signs the user out, and the
-    /// proxy's bare 403 still does.
-    func testOtherModesKeepTheStatusRules() async throws {
+    /// Without a refresher a JSON 403 does not sign the user out, and the proxy's bare 403 does.
+    func testWithoutARefresherTheStatusRulesHold() async throws {
         let signedOut = MVCallLog()
         let factory = try MVRequestFactory(
-            baseURL: "https://mail.example.com", authProvider: { .bearer(token: "t") })
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone",
+            authProvider: { MVOidcFixtures.tokens(access: "t") })
         let client = MVApiClient(
             requestFactory: factory, urlSession: MVStubURLProtocol.makeSession(),
             onAuthenticationFailure: { signedOut.record($0.userMessage) })

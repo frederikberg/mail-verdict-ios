@@ -91,7 +91,8 @@ final class ReaderSessionTests: XCTestCase {
 
     private func makeClient() throws -> MVApiClient {
         MVApiClient(
-            requestFactory: try MVRequestFactory(baseURL: "https://mail.example", authProvider: { .none }),
+            requestFactory: try MVRequestFactory(
+                baseURL: "https://mail.example", deviceName: "Test iPhone", authProvider: { .none }),
             urlSession: ReaderRouteStub.makeSession())
     }
 

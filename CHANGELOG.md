@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Every request carries the phone's name in `X-Device-Name`, for the server's list of signed-in
+  devices.
+- Signing out revokes the refresh token at the identity provider, not only on the phone.
+- A server that revokes the device (`401` with `device_revoked`) signs the app out at once, and the
+  sign-in screen says "This device was signed out".
+
 ### Changed
 
+- Zitadel is the only way to sign in. Pasted tokens, basic auth and the "no credential" mode are
+  gone, and a phone that still holds one of them from an earlier version asks for a sign-in
+  instead of using it. An existing Zitadel sign-in is kept.
 - The README's connecting section says the server accepts only an OpenID Connect bearer token,
   instead of listing basic auth and no credential as modes.
 - Push registration goes to the shared push relay at `push.frederikberg.net` and names the app in

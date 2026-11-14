@@ -75,7 +75,8 @@
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [ReaderFixtureRecorder.self]
             let client = MVApiClient(
-                requestFactory: try MVRequestFactory(baseURL: "https://fixture.invalid", authProvider: { .none }),
+                requestFactory: try MVRequestFactory(
+                    baseURL: "https://fixture.invalid", deviceName: "Test iPhone", authProvider: { .none }),
                 urlSession: URLSession(configuration: configuration))
             let defaults = try XCTUnwrap(UserDefaults(suiteName: "reader-fixture-coverage-\(UUID())"))
             var sessions: [ReaderSession] = []

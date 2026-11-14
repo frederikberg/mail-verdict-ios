@@ -8,7 +8,7 @@ final class MVRequestFactoryTests: XCTestCase {
 
     func testRejectsNonHttpScheme() {
         XCTAssertThrowsError(
-            try MVRequestFactory(baseURL: "ftp://example.com", authProvider: { .none })
+            try MVRequestFactory(baseURL: "ftp://example.com", deviceName: "Test iPhone", authProvider: { .none })
         ) { error in
             XCTAssertEqual(
                 error as? MVRequestFactory.ConfigurationError,
@@ -19,7 +19,7 @@ final class MVRequestFactoryTests: XCTestCase {
 
     func testRejectsEmptyBaseURL() {
         XCTAssertThrowsError(
-            try MVRequestFactory(baseURL: "   ", authProvider: { .none })
+            try MVRequestFactory(baseURL: "   ", deviceName: "Test iPhone", authProvider: { .none })
         ) { error in
             XCTAssertEqual(error as? MVRequestFactory.ConfigurationError, .emptyBaseURL)
         }
@@ -28,7 +28,7 @@ final class MVRequestFactoryTests: XCTestCase {
     func testTrailingSlashDoesNotDoubleUp() throws {
         let factory = try MVRequestFactory(
             baseURL: "https://mail.example.com/",
-            authProvider: { .none }
+            deviceName: "Test iPhone", authProvider: { .none }
         )
         let request = try factory.makeRequest(path: "/api/health")
         XCTAssertEqual(request.url?.absoluteString, "https://mail.example.com/api/health")
@@ -37,38 +37,40 @@ final class MVRequestFactoryTests: XCTestCase {
     /// The credential is read per request, so entering one in the connection screen takes effect
     /// immediately rather than on the next launch.
     func testTokenIsReadAtSendTimeNotConstructionTime() throws {
-        let mode = AuthModeBox()
+        let box = TokensBox()
         let factory = try MVRequestFactory(
             baseURL: "https://mail.example.com",
-            authProvider: { mode.value }
+            deviceName: "Test iPhone", authProvider: { box.value }
         )
 
         let before = try factory.makeRequest(path: "/api/health")
         XCTAssertNil(before.value(forHTTPHeaderField: "Authorization"))
 
-        mode.value = .bearer(token: "jwt-value")
+        box.value = MVOidcFixtures.tokens(access: "jwt-value")
         let after = try factory.makeRequest(path: "/api/health")
         XCTAssertEqual(after.value(forHTTPHeaderField: "Authorization"), "Bearer jwt-value")
     }
 
-    func testEmptyBearerTokenSendsNoAuthorizationHeader() throws {
+    func testEmptyAccessTokenSendsNoAuthorizationHeader() throws {
         let factory = try MVRequestFactory(
             baseURL: "https://mail.example.com",
-            authProvider: { .bearer(token: "") }
+            deviceName: "Test iPhone", authProvider: { MVOidcFixtures.tokens(access: "", refresh: "r") }
         )
         let request = try factory.makeRequest(path: "/api/health")
         XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
     }
 
-    /// `echo -n user:pass | base64` — a fixed reference value, not re-derived from the same
-    /// base64 call the implementation makes.
-    func testBasicAuthSendsBase64EncodedCredentials() throws {
+    func testEveryRequestCarriesTheDeviceName() throws {
         let factory = try MVRequestFactory(
-            baseURL: "https://mail.example.com",
-            authProvider: { .basic(username: "user", password: "pass") }
-        )
+            baseURL: "https://mail.example.com", deviceName: "Frederik's iPhone", authProvider: { .none })
         let request = try factory.makeRequest(path: "/api/health")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Basic dXNlcjpwYXNz")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-Device-Name"), "Frederik's iPhone")
+    }
+
+    func testDeviceNameIsCutToSixtyFourCharactersAndStaysOneLine() {
+        XCTAssertEqual(MVDeviceName.header(for: String(repeating: "é", count: 80)).count, 64)
+        XCTAssertEqual(MVDeviceName.header(for: "  Work\nphone  "), "Work phone")
+        XCTAssertEqual(MVDeviceName.header(for: " \n "), "iPhone")
     }
 
     /// `URLComponents` leaves a literal `+` in a query value alone — it is a legal query
@@ -77,7 +79,7 @@ final class MVRequestFactoryTests: XCTestCase {
     /// containing `+` must round-trip as itself, not as a space.
     func testQueryValueEscapesLiteralPlusRatherThanLeavingItAsASpace() throws {
         let factory = try MVRequestFactory(
-            baseURL: "https://mail.example.com", authProvider: { .none }
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone", authProvider: { .none }
         )
         let request = try factory.makeRequest(
             path: "/api/search",
@@ -94,7 +96,7 @@ final class MVRequestFactoryTests: XCTestCase {
     /// `%252F`).
     func testPreEncodedPathSegmentSurvivesWithoutBeingReEncoded() throws {
         let factory = try MVRequestFactory(
-            baseURL: "https://mail.example.com", authProvider: { .none }
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone", authProvider: { .none }
         )
         let request = try factory.makeRequest(path: "/api/folders/a%2Fb")
         let raw = request.url?.absoluteString ?? ""
@@ -104,19 +106,41 @@ final class MVRequestFactoryTests: XCTestCase {
 
     func testOidcSendsTheAccessTokenAsBearer() throws {
         let tokens = MVOidcTokens(accessToken: "access", refreshToken: "refresh", issuer: "https://i", clientId: "c")
-        let factory = try MVRequestFactory(baseURL: "https://mail.example.com", authProvider: { .oidc(tokens) })
+        let factory = try MVRequestFactory(
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone", authProvider: { tokens })
         let request = try factory.makeRequest(path: "/api/health")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access")
         XCTAssertEqual(request.mvBearerToken, "access")
     }
 
-    func testOidcTokenSetSurvivesTheKeychainsJsonEncoding() throws {
-        let mode = MVAuthMode.oidc(
-            MVOidcTokens(
-                accessToken: "a", refreshToken: "r", expiresAt: Date(timeIntervalSince1970: 1_700_000_000),
-                issuer: "https://i", clientId: "c"))
-        let decoded = try JSONDecoder().decode(MVAuthMode.self, from: try JSONEncoder().encode(mode))
-        XCTAssertEqual(decoded, mode)
+    func testTokenSetSurvivesTheKeychainsJsonEncoding() throws {
+        let tokens = MVOidcTokens(
+            accessToken: "a", refreshToken: "r", expiresAt: Date(timeIntervalSince1970: 1_700_000_000),
+            issuer: "https://i", clientId: "c")
+        let stored = try JSONEncoder().encode(tokens)
+        XCTAssertEqual(MVStoredCredential.decode(stored), .current(tokens))
+    }
+
+    /// What a phone updated from an earlier version still holds: the OIDC sign-in is carried over,
+    /// everything else is dropped so the app asks for a sign-in. The literals are the JSON the
+    /// earlier enum encoded.
+    func testStoredCredentialsOfEarlierVersionsAreCarriedOverOrDropped() throws {
+        let oidc = #"{"oidc":{"_0":{"accessToken":"a","refreshToken":"r","issuer":"https://i","clientId":"c"}}}"#
+        XCTAssertEqual(
+            MVStoredCredential.decode(Data(oidc.utf8)),
+            .migrated(MVOidcTokens(accessToken: "a", refreshToken: "r", issuer: "https://i", clientId: "c")))
+
+        let dropped = [
+            #"{"bearer":{"token":"a-key-that-lives-a-hundred-years"}}"#,
+            #"{"basic":{"username":"u","password":"p"}}"#,
+            #"{"none":{}}"#,
+            #"{"oidc":{"_0":{"accessToken":"","issuer":"https://i","clientId":"c"}}}"#,
+            "not json",
+            "",
+        ]
+        for json in dropped {
+            XCTAssertEqual(MVStoredCredential.decode(Data(json.utf8)), .unusable, json)
+        }
     }
 
     func testTokenExpiryHonoursTheSkew() {
@@ -133,6 +157,6 @@ final class MVRequestFactoryTests: XCTestCase {
 /// A `var` captured by an escaping sendable closure and mutated afterwards is a data race the
 /// compiler cannot rule out, even where the test is single-threaded. A reference box makes the
 /// sharing explicit instead of asserting it away.
-private final class AuthModeBox: @unchecked Sendable {
-    var value: MVAuthMode = .none
+private final class TokensBox: @unchecked Sendable {
+    var value: MVOidcTokens?
 }

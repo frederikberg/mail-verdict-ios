@@ -45,8 +45,9 @@ struct ShareScreen: View {
 
     /// The connection the app signed in with, read from the Keychain group both targets hold. Only
     /// read here: signing in, and signing out, belong to the app.
+    @MainActor
     private static func client() -> MVApiClient? {
-        MVKeychainCredentialStore().signedInClient()
+        MVKeychainCredentialStore().signedInClient(deviceName: UIDevice.current.name)
     }
 }
 

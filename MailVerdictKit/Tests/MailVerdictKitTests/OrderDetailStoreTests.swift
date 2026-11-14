@@ -10,7 +10,8 @@ final class OrderDetailStoreTests: XCTestCase {
     }
 
     private func makeStore(orderId: UUID) -> OrderDetailStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         return OrderDetailStore(orderId: orderId, apiClient: client)
     }

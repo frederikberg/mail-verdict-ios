@@ -143,14 +143,19 @@ final class AppEnvironment {
 
         if credentials.read() != nil {
             connect()
+        } else {
+            // Signed out, or only a credential an earlier version stored (dropped by `read()`):
+            // the share extension must not keep an address with nothing to go with it.
+            credentials.writeBackendURL(nil)
         }
     }
 
-    /// Store a credential and bring the connection up. Returns false if the URL is unusable.
+    /// Store a finished sign-in and bring the connection up. Returns false if the Keychain
+    /// refused the tokens or the URL is unusable.
     @discardableResult
-    func signIn(backendURL url: String, mode: MVAuthMode) -> Bool {
+    func signIn(backendURL url: String, tokens: MVOidcTokens) -> Bool {
         backendURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard credentials.write(mode) else { return false }
+        guard credentials.write(tokens) else { return false }
         return connect()
     }
 
@@ -163,6 +168,7 @@ final class AppEnvironment {
         connection?.liveEventHub.disconnect()
         connection?.intentLedger.stop()
         connection?.me.clear()
+        revokeAtProvider(credentials.read())
         credentials.write(nil)
         credentials.writeBackendURL(nil)
         connection = nil
@@ -177,11 +183,32 @@ final class AppEnvironment {
         // Signed out, no mail stays on the device; the instance ignores any save still on its way.
         if let offlineCache = connection?.offlineCache { Task { await offlineCache.discard() } }
         MVOfflineCache.removeAll(under: Self.offlineCacheBase)
+        revokeAtProvider(credentials.read())
         credentials.write(nil)
         credentials.writeBackendURL(nil)
         connection = nil
         lastAuthFailure = nil
         router = Router(gate: .needsConfiguration)
+    }
+
+    /// Ends the sign-in at the provider as well, so a copy of the refresh token anywhere is
+    /// worthless. After the local copy is the caller's to clear, and not waited for: an offline
+    /// phone still signs out, and the session then lives on at the provider until it expires.
+    private func revokeAtProvider(_ tokens: MVOidcTokens?) {
+        guard let tokens else { return }
+        Task.detached { try? await MVOidcClient().revoke(tokens) }
+    }
+
+    /// The stream's refusal says nothing about why, so one ordinary request is asked: when the
+    /// server answers it with a reason, that reason ends the session (and is what the sign-in
+    /// screen shows); when it does not, the stream's own verdict stands.
+    private func handleStreamRefusal() {
+        guard let client = connection?.apiClient else { return }
+        Task { @MainActor [weak self] in
+            _ = try? await client.getMe()
+            guard let self, self.connection != nil else { return }
+            self.handleAuthenticationFailure(detail: "Your sign-in has ended.")
+        }
     }
 
     /// Lands on a shortcut's target. A composer already open stays: it is modal and may hold unsent
@@ -248,21 +275,16 @@ final class AppEnvironment {
 
     @discardableResult
     private func connect() -> Bool {
-        // An OIDC session keeps its token set in one holder the request factory reads at send time,
-        // so a renewed access token reaches the next request without a Keychain lookup; the
-        // refresher stores each renewal and is shared by the API client and the live stream.
-        var refresher: MVTokenRefresher?
-        let authProvider: @Sendable () -> MVAuthMode
-        if case .oidc(let tokens)? = credentials.read() {
-            let holder = MVOidcTokenHolder(tokens)
-            refresher = credentials.tokenRefresher(holder: holder)
-            authProvider = { holder.authMode }
-        } else {
-            authProvider = { [credentials] in credentials.read() ?? .none }
-        }
-        guard let factory = try? MVRequestFactory(baseURL: backendURL, authProvider: authProvider) else {
-            return false
-        }
+        // The token set lives in one holder the request factory reads at send time, so a renewed
+        // access token reaches the next request without a Keychain lookup; the refresher stores
+        // each renewal and is shared by the API client and the live stream.
+        guard let tokens = credentials.read() else { return false }
+        let holder = MVOidcTokenHolder(tokens)
+        let refresher = credentials.tokenRefresher(holder: holder)
+        guard
+            let factory = try? MVRequestFactory(
+                baseURL: backendURL, deviceName: UIDevice.current.name, authProvider: { holder.tokens })
+        else { return false }
 
         // Weak, and hopped to the main actor: the callback fires from whatever task made the
         // request, and a strong reference here would be a retain cycle through the client the
@@ -279,7 +301,7 @@ final class AppEnvironment {
         let liveEventHub = LiveEventHub(
             requestFactory: factory, credentialRefresher: refresher,
             onAuthenticationFailure: { [weak self] in
-                self?.handleAuthenticationFailure(detail: "Your sign-in has ended.")
+                self?.handleStreamRefusal()
             })
         liveEventHub.connect()
 

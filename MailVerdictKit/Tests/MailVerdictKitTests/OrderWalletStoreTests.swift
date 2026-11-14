@@ -17,7 +17,8 @@ final class OrderWalletStoreTests: XCTestCase {
     }
 
     private var client: MVApiClient {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         return MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
     }
 
@@ -115,7 +116,8 @@ final class OrderWalletStoreTests: XCTestCase {
             itemJSON(id: past, kind: "ticket", day: "2026-04-01"),
             itemJSON(id: future, kind: "ticket", day: "2026-07-01"),
         ])
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let api = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let store = OrderListStore(apiClient: api, view: OrderViewState(kind: .tickets), today: { "2026-05-10" })
         await store.load()

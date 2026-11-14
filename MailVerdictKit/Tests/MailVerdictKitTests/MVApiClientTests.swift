@@ -9,7 +9,8 @@ final class MVApiClientTests: XCTestCase {
     }
 
     private func makeClient(onAuthenticationFailure: (@Sendable (MVError) -> Void)? = nil) throws -> MVApiClient {
-        let factory = try MVRequestFactory(baseURL: "https://mail.example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://mail.example.com", deviceName: "Test iPhone", authProvider: { .none })
         return MVApiClient(
             requestFactory: factory,
             urlSession: MVStubURLProtocol.makeSession(),

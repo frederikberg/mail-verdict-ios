@@ -11,7 +11,8 @@ final class MVAccountDetailStoreTests: XCTestCase {
     }
 
     private func makeStore(accountId: UUID = UUID()) -> MVAccountDetailStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         return MVAccountDetailStore(accountId: accountId, apiClient: client)
     }

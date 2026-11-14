@@ -8,8 +8,9 @@ import Foundation
 
 /// Builds every request the app sends.
 ///
-/// One place owns the base URL and the bearer header, so every transport — the REST client and
-/// the SSE stream alike — applies them the same way instead of each carrying its own copy.
+/// One place owns the base URL, the bearer header and the device name, so every transport — the
+/// REST client and the SSE stream alike — applies them the same way instead of each carrying its
+/// own copy.
 public struct MVRequestFactory: Sendable {
 
     public enum ConfigurationError: Error, Equatable {
@@ -19,13 +20,19 @@ public struct MVRequestFactory: Sendable {
     }
 
     private let baseURL: URL
-    private let authProvider: @Sendable () -> MVAuthMode
+    private let deviceName: String
+    private let authProvider: @Sendable () -> MVOidcTokens?
 
-    /// - Parameter authProvider: read at send time rather than captured, so a credential entered
-    ///   or changed in settings takes effect on the next request without rebuilding the client.
+    /// - Parameter deviceName: the user-visible name of this device, sent on every request so the
+    ///   server's list of signed-in devices can show which one a session belongs to.
+    /// - Parameter authProvider: read at send time rather than captured, so a renewed token
+    ///   takes effect on the next request without rebuilding the client. `nil` sends no
+    ///   credential: only the public `GET /api/auth/config` and `GET /api/health` are asked
+    ///   that way.
     public init(
         baseURL rawBaseURL: String,
-        authProvider: @escaping @Sendable () -> MVAuthMode
+        deviceName: String,
+        authProvider: @escaping @Sendable () -> MVOidcTokens?
     ) throws {
         let trimmed = rawBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ConfigurationError.emptyBaseURL }
@@ -42,6 +49,7 @@ public struct MVRequestFactory: Sendable {
         }
 
         self.baseURL = normalizedURL
+        self.deviceName = MVDeviceName.header(for: deviceName)
         self.authProvider = authProvider
     }
 
@@ -77,20 +85,9 @@ public struct MVRequestFactory: Sendable {
         request.httpMethod = method
         request.httpBody = body
 
-        switch authProvider() {
-        case .none:
-            break
-        case .bearer(let token):
-            if !token.isEmpty {
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            }
-        case .basic(let username, let password):
-            let raw = Data("\(username):\(password)".utf8).base64EncodedString()
-            request.setValue("Basic \(raw)", forHTTPHeaderField: "Authorization")
-        case .oidc(let tokens):
-            if !tokens.accessToken.isEmpty {
-                request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
-            }
+        request.setValue(deviceName, forHTTPHeaderField: MVDeviceName.headerField)
+        if let tokens = authProvider(), !tokens.accessToken.isEmpty {
+            request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
         }
         if let contentType {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")

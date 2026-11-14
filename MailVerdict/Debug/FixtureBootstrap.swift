@@ -35,7 +35,8 @@ import MailVerdictKit
         /// `MVFixtureURLProtocol` answers every request before it reaches the network. Only its
         /// presence matters: `AppEnvironment.init()` reads the Keychain and connects if it finds
         /// anything there.
-        private static let placeholderCredential = MVAuthMode.bearer(token: "fixture-mode-token")
+        private static let placeholderCredential = MVOidcTokens(
+            accessToken: "fixture-mode-token", issuer: placeholderBackendURL, clientId: "fixture")
 
         static func installIfRequested() {
             guard MVFixtureLaunch.isEnabled() else { return }

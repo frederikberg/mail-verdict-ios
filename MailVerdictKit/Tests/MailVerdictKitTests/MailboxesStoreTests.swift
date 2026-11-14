@@ -13,7 +13,8 @@ private final class ObservationFlag: @unchecked Sendable {
 final class MailboxesStoreTests: XCTestCase {
 
     private func makeStore() -> MailboxesStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let suite = try! XCTUnwrap(UserDefaults(suiteName: "mailboxes-store-\(UUID())"))
         return MailboxesStore(
@@ -55,7 +56,8 @@ final class MailboxesStoreTests: XCTestCase {
         let key = MailboxesUIState.accountKey(UUID())
         MailboxesUIState(defaults: suite).setCollapsed(true, forKey: key)
 
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let relaunched = MailboxesStore(
             apiClient: client, ledger: makeTestLedger(transport: client), uiState: MailboxesUIState(defaults: suite),
@@ -93,7 +95,8 @@ final class MailboxesStoreTests: XCTestCase {
                         ])
                 ],
                 savedAt: Date(timeIntervalSinceNow: -3 * 86_400)))
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let suite = try! XCTUnwrap(UserDefaults(suiteName: "mailboxes-store-\(UUID())"))
         let store = MailboxesStore(

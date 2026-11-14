@@ -33,11 +33,15 @@ public struct MVOidcProviderMetadata: Sendable, Equatable, Decodable {
     public let issuer: String
     public let authorizationEndpoint: URL
     public let tokenEndpoint: URL
+    /// `nil` when the provider publishes none; signing out then ends the session on this device
+    /// only.
+    public let revocationEndpoint: URL?
 
     enum CodingKeys: String, CodingKey {
         case issuer
         case authorizationEndpoint = "authorization_endpoint"
         case tokenEndpoint = "token_endpoint"
+        case revocationEndpoint = "revocation_endpoint"
     }
 }
 
@@ -78,7 +82,8 @@ public struct MVOidcClient: Sendable {
         // issuer itself, would redirect the credential somewhere the server never vouched for.
         guard Self.trimmingTrailingSlash(metadata.issuer) == base,
             metadata.authorizationEndpoint.scheme == issuerURL.scheme,
-            metadata.tokenEndpoint.scheme == issuerURL.scheme
+            metadata.tokenEndpoint.scheme == issuerURL.scheme,
+            metadata.revocationEndpoint.map({ $0.scheme == issuerURL.scheme }) ?? true
         else { throw MVOidcError.discoveryFailed("The sign-in provider's configuration does not match its address.") }
         return metadata
     }
@@ -157,6 +162,36 @@ public struct MVOidcClient: Sendable {
             ])
         return try self.tokens(
             from: response, issuer: tokens.issuer, clientId: tokens.clientId, previousRefreshToken: refreshToken)
+    }
+
+    /// Ends the session at the provider: the refresh token (the access token when there is none)
+    /// stops working there, so signing out of this phone cannot be undone by anyone holding a
+    /// copy. Best-effort by nature — the caller has already cleared its own copy and does not
+    /// wait on the outcome.
+    public func revoke(_ tokens: MVOidcTokens, metadata: MVOidcProviderMetadata) async throws {
+        guard let endpoint = metadata.revocationEndpoint else { return }
+        let (token, hint) =
+            tokens.refreshToken.map { ($0, "refresh_token") } ?? (tokens.accessToken, "access_token")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data(
+            Self.formEncoded([("token", token), ("token_type_hint", hint), ("client_id", tokens.clientId)])
+                .utf8)
+        let response: URLResponse
+        do {
+            (_, response) = try await urlSession.data(for: request)
+        } catch {
+            throw MVOidcError.unavailable(error.mvUserMessage)
+        }
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw MVOidcError.unavailable("The sign-in provider did not accept the sign-out.")
+        }
+    }
+
+    /// Discovers the provider, then revokes. For a caller that holds nothing but the token set.
+    public func revoke(_ tokens: MVOidcTokens) async throws {
+        try await revoke(tokens, metadata: discover(issuer: tokens.issuer))
     }
 
     private struct TokenResponse: Decodable {

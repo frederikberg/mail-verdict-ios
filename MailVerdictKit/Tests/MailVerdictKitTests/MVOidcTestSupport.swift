@@ -31,7 +31,8 @@ enum MVOidcFixtures {
             body: Data(
                 """
                 {"issuer":"\(issuer)","authorization_endpoint":"\(Self.issuer)/oauth/v2/authorize",
-                "token_endpoint":"\(Self.issuer)/oauth/v2/token"}
+                "token_endpoint":"\(Self.issuer)/oauth/v2/token",
+                "revocation_endpoint":"\(Self.issuer)/oauth/v2/revoke"}
                 """.utf8))
     }
 

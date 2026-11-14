@@ -61,6 +61,18 @@ public enum MVError: Error, Equatable {
     /// The `detail` the backend's auth middleware answers a disabled user with.
     static let disabledDetail = "user_disabled"
 
+    /// The server signed this device out: its entry in the list of signed-in devices was revoked.
+    /// Refreshing the token cannot help, since the refusal follows the device, not the token.
+    public var isDeviceRevoked: Bool {
+        if case .detail(Self.deviceRevokedDetail, 401) = self { return true }
+        return false
+    }
+
+    static let deviceRevokedDetail = "device_revoked"
+
+    /// What a signed-out device is told, whichever screen the refusal reached first.
+    public static let deviceRevokedMessage = "This device was signed out"
+
     /// Whether the app should treat this as the end of the session: a rejected credential, or a
     /// disabled user.
     public var endsSession: Bool { isAuthenticationFailure || isDisabled }
@@ -73,6 +85,7 @@ public enum MVError: Error, Equatable {
     /// disclosure, never as the line shown by default.
     public var userMessage: String {
         switch self {
+        case .detail(Self.deviceRevokedDetail, 401): return Self.deviceRevokedMessage
         case let .detail(text, _): return text
         case let .http(code, reason): return "HTTP \(code): \(reason)"
         case let .transport(text): return text

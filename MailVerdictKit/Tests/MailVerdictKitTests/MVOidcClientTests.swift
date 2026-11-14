@@ -35,6 +35,43 @@ final class MVOidcClientTests: XCTestCase {
             "https://login.example.com/.well-known/openid-configuration")
     }
 
+    // MARK: Revocation
+
+    func testSignOutRevokesTheRefreshTokenAtTheProvider() async throws {
+        let found = try await metadata()
+        MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data())
+        try await makeClient().revoke(MVOidcFixtures.tokens(), metadata: found)
+
+        let request = try XCTUnwrap(MVStubURLProtocol.capturedRequest)
+        XCTAssertEqual(request.url?.absoluteString, "https://login.example.com/oauth/v2/revoke")
+        XCTAssertEqual(request.httpMethod, "POST")
+        let body = MVOidcFixtures.requestBody(request)
+        XCTAssertTrue(body.contains("token=refresh-1"), body)
+        XCTAssertTrue(body.contains("token_type_hint=refresh_token"), body)
+        XCTAssertTrue(body.contains("client_id=native-client"), body)
+    }
+
+    func testSignOutWithoutARefreshTokenRevokesTheAccessToken() async throws {
+        let found = try await metadata()
+        MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data())
+        try await makeClient().revoke(MVOidcFixtures.tokens(refresh: nil), metadata: found)
+
+        let body = MVOidcFixtures.requestBody(MVStubURLProtocol.capturedRequest)
+        XCTAssertTrue(body.contains("token=access-1"), body)
+        XCTAssertTrue(body.contains("token_type_hint=access_token"), body)
+    }
+
+    func testARefusedRevocationThrowsForTheCallerToIgnore() async throws {
+        let found = try await metadata()
+        MVStubURLProtocol.stub = .init(statusCode: 503, headers: [:], body: Data())
+        do {
+            try await makeClient().revoke(MVOidcFixtures.tokens(), metadata: found)
+            XCTFail("expected an error")
+        } catch let error as MVOidcError {
+            XCTAssertFalse(error.isRejection)
+        }
+    }
+
     func testDiscoveryRefusesADocumentForAnotherIssuer() async {
         MVStubURLProtocol.stub = MVOidcFixtures.discovery(issuer: "https://evil.example.net")
         do {
