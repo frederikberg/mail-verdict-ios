@@ -61,14 +61,15 @@ public enum MVError: Error, Equatable {
     /// The `detail` the backend's auth middleware answers a disabled user with.
     static let disabledDetail = "user_disabled"
 
-    /// The server signed this device out: its entry in the list of signed-in devices was revoked.
+    /// The server signed this device out: its entry in the list of signed-in devices was revoked,
+    /// or the token maps to no device it knows (`device_unrecognised`, which fails closed).
     /// Refreshing the token cannot help, since the refusal follows the device, not the token.
     public var isDeviceRevoked: Bool {
-        if case .detail(Self.deviceRevokedDetail, 401) = self { return true }
+        if case .detail(let detail, 401) = self { return Self.deviceRefusalDetails.contains(detail) }
         return false
     }
 
-    static let deviceRevokedDetail = "device_revoked"
+    static let deviceRefusalDetails: Set<String> = ["device_revoked", "device_unrecognised"]
 
     /// What a signed-out device is told, whichever screen the refusal reached first.
     public static let deviceRevokedMessage = "This device was signed out"
@@ -84,8 +85,8 @@ public enum MVError: Error, Equatable {
     /// available through `mvTechnicalDetail` (`Formatting/UserFacingError.swift`) for a
     /// disclosure, never as the line shown by default.
     public var userMessage: String {
+        if isDeviceRevoked { return Self.deviceRevokedMessage }
         switch self {
-        case .detail(Self.deviceRevokedDetail, 401): return Self.deviceRevokedMessage
         case let .detail(text, _): return text
         case let .http(code, reason): return "HTTP \(code): \(reason)"
         case let .transport(text): return text

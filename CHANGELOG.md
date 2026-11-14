@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The device list reads `native` as a phone beside the older `apns`, and a transport value the
+  app does not know no longer fails the whole list.
+- A `401` with `device_unrecognised` signs the app out like `device_revoked` does.
 - Zitadel is the only way to sign in. Pasted tokens, basic auth and the "no credential" mode are
   gone, and a phone that still holds one of them from an earlier version asks for a sign-in
   instead of using it. An existing Zitadel sign-in is kept.

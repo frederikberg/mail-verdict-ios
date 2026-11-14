@@ -161,9 +161,37 @@ public struct PushSubscriptionResponse: ContractModel, Codable, Sendable, Equata
     }
     public typealias CodingKeys = ContractKeys
 
-    public enum Transport: String, Sendable, Equatable, Codable {
+    /// How a device receives pushes. `native` is a phone; `apns` is the older wire value for the
+    /// same thing and stays decodable. A value this build does not know decodes as
+    /// `unrecognized` instead of failing the whole list.
+    public enum Transport: Sendable, Equatable, Codable {
         case webpush
+        case native
         case apns
+        case unrecognized(String)
+
+        public init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            switch raw {
+            case "webpush": self = .webpush
+            case "native": self = .native
+            case "apns": self = .apns
+            default: self = .unrecognized(raw)
+            }
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .webpush: try container.encode("webpush")
+            case .native: try container.encode("native")
+            case .apns: try container.encode("apns")
+            case .unrecognized(let raw): try container.encode(raw)
+            }
+        }
+
+        /// A phone, whichever wire value names it.
+        public var isPhone: Bool { self == .native || self == .apns }
     }
 
     public let id: UUID
