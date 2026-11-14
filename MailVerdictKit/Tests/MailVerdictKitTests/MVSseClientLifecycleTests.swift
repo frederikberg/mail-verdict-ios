@@ -123,7 +123,8 @@ final class MVSseClientLifecycleTests: XCTestCase {
     }
 
     private func makeClient(onConnected: @escaping @MainActor @Sendable () -> Void = {}) -> MVSseClient {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         return MVSseClient(
             requestFactory: factory,
             callbacks: .init(

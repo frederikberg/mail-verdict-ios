@@ -176,7 +176,8 @@ final class LiveEventHubBufferingTests: XCTestCase {
     }
 
     private func makeHub() throws -> LiveEventHub {
-        let factory = try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         return LiveEventHub(requestFactory: factory, urlSessionConfiguration: MVStubURLProtocol.makeConfiguration())
     }
 
@@ -228,7 +229,8 @@ final class LiveEventHubBufferingTests: XCTestCase {
             + "event: mail.deleted\r\ndata: {\"id\":\"\(UUID())\"}\r\n\r\n"
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data(raw.utf8))
         let ticks = CallCounter()
-        let factory = try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let hub = LiveEventHub(
             requestFactory: factory, urlSessionConfiguration: MVStubURLProtocol.makeConfiguration(),
             now: { Date(timeIntervalSince1970: Double(ticks.next())) })

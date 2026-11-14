@@ -17,7 +17,8 @@ final class MeStoreTests: XCTestCase {
     }
 
     private func makeStore() -> MeStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         return MeStore(apiClient: MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession()))
     }
 

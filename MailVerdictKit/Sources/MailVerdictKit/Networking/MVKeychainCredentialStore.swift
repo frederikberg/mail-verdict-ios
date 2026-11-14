@@ -2,9 +2,9 @@
     import Foundation
     import Security
 
-    /// Where the backend's credential lives — none, a bearer token, a basic-auth username and
-    /// password, or an OIDC token set, encoded as JSON so one Keychain item holds whichever this
-    /// install actually uses.
+    /// Where the backend's credential lives: the token set of a Zitadel sign-in, encoded as JSON
+    /// in one Keychain item. A pasted key, a basic-auth pair or "no credential" — what earlier
+    /// versions could store — is never read: the item is removed and the app asks for a sign-in.
     ///
     /// The Keychain is the only place on the device holding a secret; everything else the app
     /// remembers (the backend URL) is an ordinary preference and lives in `UserDefaults`. The URL
@@ -25,7 +25,7 @@
             ///
             /// Deliberately not a general fallback: it is consulted only when fixture mode asked for
             /// it, so a real build can never silently keep a credential outside the Keychain.
-            nonisolated(unsafe) private static var fixtureCredential: MVAuthMode?
+            nonisolated(unsafe) private static var fixtureCredential: MVOidcTokens?
             private static let fixtureLock = NSLock()
         #endif
 
@@ -64,30 +64,37 @@
         /// needs the resolved string, never the build variable.
         private static let teamId = "CSHG4AV9YH"
 
-        public func read() -> MVAuthMode? {
+        /// The sign-in's token set, `nil` when signed out. An item an earlier version wrote in
+        /// another shape is dropped here, so a phone that still carries an old pasted key lands
+        /// on the sign-in screen rather than keeping a credential nothing should send; an old
+        /// OIDC sign-in is carried over as it is.
+        public func read() -> MVOidcTokens? {
             #if DEBUG
                 if MVFixtureLaunch.isEnabled() {
                     Self.fixtureLock.lock()
                     defer { Self.fixtureLock.unlock() }
-                    if let mode = Self.fixtureCredential { return mode }
+                    if let tokens = Self.fixtureCredential { return tokens }
                 }
             #endif
-            guard let data = readItem(account: credentialAccount),
-                let mode = try? JSONDecoder().decode(MVAuthMode.self, from: data),
-                !isEffectivelyEmpty(mode)
-            else {
+            guard let data = readItem(account: credentialAccount) else { return nil }
+            switch MVStoredCredential.decode(data) {
+            case .current(let tokens):
+                return tokens
+            case .migrated(let tokens):
+                if let rewritten = try? JSONEncoder().encode(tokens) {
+                    _ = writeItem(rewritten, account: credentialAccount)
+                }
+                return tokens
+            case .unusable:
+                removeItem(account: credentialAccount)
                 return nil
             }
-            return mode
         }
 
-        /// Writing `nil` removes the item. `.none` is a complete, deliberate choice (a LAN install
-        /// with no proxy in front of it) and is never treated as absent; an empty bearer token or an
-        /// empty basic-auth pair is, since the sign-in form never submits one on purpose — only a
-        /// stale or cleared value could reach here looking like that.
+        /// Writing `nil` removes the item.
         @discardableResult
-        public func write(_ mode: MVAuthMode?) -> Bool {
-            guard let mode, !isEffectivelyEmpty(mode), let data = try? JSONEncoder().encode(mode) else {
+        public func write(_ tokens: MVOidcTokens?) -> Bool {
+            guard let tokens, tokens.isUsable, let data = try? JSONEncoder().encode(tokens) else {
                 removeItem(account: credentialAccount)
                 return true
             }
@@ -96,7 +103,7 @@
             #if DEBUG
                 if status != errSecSuccess, MVFixtureLaunch.isEnabled() {
                     Self.fixtureLock.lock()
-                    Self.fixtureCredential = mode
+                    Self.fixtureCredential = tokens
                     Self.fixtureLock.unlock()
                     return true
                 }
@@ -117,17 +124,14 @@
         /// own connection: the share extension, and the Shortcuts app asking for a list to pick
         /// from. `nil` when signed out. An OIDC sign-in comes back with a client that renews its own
         /// access token, so an extension launched long after the app last ran still gets through.
-        public func signedInClient() -> MVApiClient? {
-            guard let url = readBackendURL(), let mode = read() else { return nil }
-            if case .oidc(let tokens) = mode {
-                let holder = MVOidcTokenHolder(tokens)
-                guard let factory = try? MVRequestFactory(baseURL: url, authProvider: { holder.authMode })
-                else { return nil }
-                return MVApiClient(
-                    requestFactory: factory, credentialRefresher: tokenRefresher(holder: holder))
-            }
-            guard let factory = try? MVRequestFactory(baseURL: url, authProvider: { mode }) else { return nil }
-            return MVApiClient(requestFactory: factory)
+        public func signedInClient(deviceName: String) -> MVApiClient? {
+            guard let url = readBackendURL(), let tokens = read() else { return nil }
+            let holder = MVOidcTokenHolder(tokens)
+            guard
+                let factory = try? MVRequestFactory(
+                    baseURL: url, deviceName: deviceName, authProvider: { holder.tokens })
+            else { return nil }
+            return MVApiClient(requestFactory: factory, credentialRefresher: tokenRefresher(holder: holder))
         }
 
         /// The one renewer of an OIDC sign-in, for the app and every extension alike: it stores each
@@ -138,13 +142,10 @@
                 holder: holder,
                 // A refresh that finishes after sign-out must not write the session back.
                 persist: { tokens in
-                    guard case .oidc? = read() else { return }
-                    _ = write(.oidc(tokens))
+                    guard read() != nil else { return }
+                    _ = write(tokens)
                 },
-                reload: {
-                    if case .oidc(let tokens)? = read() { return tokens }
-                    return nil
-                })
+                reload: { read() })
         }
 
         /// Publishes the backend address for the share extension; `nil` removes it. The app's own
@@ -183,17 +184,6 @@
             // form does.
             query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             return SecItemAdd(query as CFDictionary, nil)
-        }
-
-        private func isEffectivelyEmpty(_ mode: MVAuthMode) -> Bool {
-            switch mode {
-            case .none: return false
-            case .bearer(let token): return token.isEmpty
-            case .basic(let username, let password): return username.isEmpty && password.isEmpty
-            // A token set with neither token is unusable; one with only a refresh token is
-            // not, since the first request refreshes it.
-            case .oidc(let tokens): return tokens.accessToken.isEmpty && tokens.refreshToken == nil
-            }
         }
     }
 #endif

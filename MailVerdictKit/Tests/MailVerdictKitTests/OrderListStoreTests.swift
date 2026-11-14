@@ -13,7 +13,8 @@ final class OrderListStoreTests: XCTestCase {
         view: OrderViewState = OrderViewState(), persistence: OrderViewPersistence? = nil,
         offlineCache: MVOfflineCache? = nil, today: String = "2026-05-10"
     ) -> OrderListStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         return OrderListStore(
             apiClient: client, view: view, persistence: persistence, offlineCache: offlineCache,
@@ -254,7 +255,8 @@ final class OrderListStoreTests: XCTestCase {
 
     func testTheFilterFieldReloadsOnceTypingPausesAndSendsTheText() async throws {
         stubList([UUID()])
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let store = OrderListStore(apiClient: client, queryDebounce: .milliseconds(20))
         store.setQuery("nord")

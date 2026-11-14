@@ -17,9 +17,16 @@ redirect `mailverdict://auth/callback`) and keeps the session alive by refreshin
 you stay signed in until you sign out. The share extension and Shortcuts use the same session.
 Administrators see the server-wide settings under Advanced; ordinary users do not.
 
-The server accepts only an OpenID Connect bearer token, so signing in is the way in; under
-**Advanced** an access token issued by the server's identity provider can be pasted instead. The
-credential is held in the Keychain, everything else in `UserDefaults`.
+Signing in is the only way in: the server accepts only the tokens its identity provider issues,
+so the app has no field for a pasted key, no basic auth and no "no credential" mode. A phone that
+still holds one of those from an earlier version is asked to sign in. The token set is held in the
+Keychain, everything else in `UserDefaults`.
+
+Every request carries the phone's name in `X-Device-Name`, so the server's list of signed-in
+devices can show it (iOS reports the generic model name, such as "iPhone", unless the device name
+entitlement is granted). Signing out revokes the refresh token at the identity provider as well as
+clearing the phone, and a server that revokes the device from its list signs the app out the next
+time it asks, with the message "This device was signed out".
 
 ## Reading offline
 

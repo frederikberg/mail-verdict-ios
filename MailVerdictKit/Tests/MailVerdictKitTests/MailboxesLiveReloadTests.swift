@@ -19,7 +19,8 @@ final class MailboxesLiveReloadTests: XCTestCase {
     }
 
     private func makeStore() -> MailboxesStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let suite = try! XCTUnwrap(UserDefaults(suiteName: "mailboxes-live-\(UUID())"))
         return MailboxesStore(

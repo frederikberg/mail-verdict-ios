@@ -41,7 +41,8 @@ final class MVSseClientConnectionTests: XCTestCase {
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data(raw.utf8))
 
         let factory = try! MVRequestFactory(
-            baseURL: "https://stub.example.com", authProvider: { .bearer(token: "jwt") })
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone",
+            authProvider: { MVOidcFixtures.tokens(access: "jwt") })
         let signal = MVStreamConnectionSignal()
         var received: MVSseRecord?
 
@@ -71,7 +72,8 @@ final class MVSseClientConnectionTests: XCTestCase {
     func testTheHeartbeatCountsAsActivityAndIsNotHandedToTheCaller() async {
         let raw = "event: ping\ndata: {}\n\nid: a1-2\nevent: mail.new\ndata: {}\n\n"
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data(raw.utf8))
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let signal = MVStreamConnectionSignal()
         var names: [String] = []
         var activity = 0
@@ -100,7 +102,8 @@ final class MVSseClientConnectionTests: XCTestCase {
     /// misread as "filter to the account named the empty string" rather than "no filter".
     func testAccountScopedClientSendsTheAccountIdQueryParameter() async {
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data())
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let signal = MVStreamConnectionSignal()
         let client = MVSseClient(
             accountId: "acct-123", requestFactory: factory,
@@ -124,7 +127,8 @@ final class MVSseClientConnectionTests: XCTestCase {
     /// starts asking repeatedly.
     func testSeveralCallersAskingToConnectAtOnceOpenOneStreamBetweenThem() async {
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data())
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVSseClient(
             requestFactory: factory,
             callbacks: .init(onRecord: { _ in }, onActivity: {}, onConnected: {}, onDisconnected: {}),
@@ -144,7 +148,8 @@ final class MVSseClientConnectionTests: XCTestCase {
     /// exactly that: the client must still space its attempts out rather than spin.
     func testAStreamThatDiesImmediatelyIsRetriedFarApartRatherThanInALoop() async {
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data())
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVSseClient(
             requestFactory: factory,
             callbacks: .init(onRecord: { _ in }, onActivity: {}, onConnected: {}, onDisconnected: {}),
@@ -242,7 +247,8 @@ final class MVSseClientRefusalTests: XCTestCase {
         refresher: FakeRefresher, signedOut: MVCallLog, connected: MVStreamConnectionSignal
     ) -> MVSseClient {
         let holder = refresher.holder
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { holder.authMode })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { holder.tokens })
         return MVSseClient(
             requestFactory: factory,
             callbacks: .init(

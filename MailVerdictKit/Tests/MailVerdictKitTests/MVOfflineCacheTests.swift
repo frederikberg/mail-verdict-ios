@@ -282,7 +282,8 @@ final class ReaderResourceLoaderTests: XCTestCase {
 
     private func makeLoader(_ cache: MVOfflineCache) throws -> MVReaderResourceLoader {
         let client = MVApiClient(
-            requestFactory: try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none }),
+            requestFactory: try MVRequestFactory(
+                baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none }),
             urlSession: MVStubURLProtocol.makeSession(), readRetry: MVReadRetryPolicy(delays: []))
         return MVReaderResourceLoader(api: client, offlineCache: cache)
     }

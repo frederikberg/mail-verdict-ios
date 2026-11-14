@@ -19,7 +19,8 @@ final class ReadRetryTests: XCTestCase {
 
     private func makeClient() -> MVApiClient {
         MVApiClient(
-            requestFactory: try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none }),
+            requestFactory: try! MVRequestFactory(
+                baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none }),
             urlSession: MVStubURLProtocol.makeSession(),
             readRetry: MVReadRetryPolicy(delays: [0.01, 0.01], readTimeout: 30))
     }
@@ -114,7 +115,8 @@ final class ReadRetryTests: XCTestCase {
     func testReadsCarryTheShorterTimeoutAndWritesDoNot() async throws {
         MVStubURLProtocol.stub = answer(200, Data("[]".utf8))
         let client = MVApiClient(
-            requestFactory: try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none }),
+            requestFactory: try MVRequestFactory(
+                baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none }),
             urlSession: MVStubURLProtocol.makeSession(), readRetry: MVReadRetryPolicy(delays: [], readTimeout: 7))
 
         _ = try await client.listAccounts()
@@ -186,7 +188,8 @@ final class SseRetryNowTests: XCTestCase {
 
     private func makeSseClient() throws -> MVSseClient {
         MVSseClient(
-            requestFactory: try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none }),
+            requestFactory: try MVRequestFactory(
+                baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none }),
             callbacks: .init(onRecord: { _ in }, onActivity: {}, onConnected: {}, onDisconnected: {}),
             urlSessionConfiguration: MVHoldOpenStubProtocol.makeConfiguration())
     }
@@ -236,7 +239,8 @@ final class SseRetryNowTests: XCTestCase {
     /// a second and a half can only come from `retryNow()`.
     func testANetworkReturnSkipsTheBackoff() async throws {
         MVHoldOpenStubProtocol.dieImmediately = true
-        let factory = try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVSseClient(
             requestFactory: factory,
             callbacks: .init(onRecord: { _ in }, onActivity: {}, onConnected: {}, onDisconnected: {}),

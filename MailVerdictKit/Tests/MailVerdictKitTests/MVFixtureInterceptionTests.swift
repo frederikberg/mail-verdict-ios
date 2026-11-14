@@ -50,7 +50,8 @@
             let configuration = URLSessionConfiguration.ephemeral
             MVFixtureURLProtocol.installIfEnabled(in: configuration, enabled: true)
             let session = URLSession(configuration: configuration)
-            let factory = try MVRequestFactory(baseURL: "https://fixture.invalid", authProvider: { .none })
+            let factory = try MVRequestFactory(
+                baseURL: "https://fixture.invalid", deviceName: "Test iPhone", authProvider: { .none })
             let client = MVApiClient(requestFactory: factory, urlSession: session)
 
             let health = try await client.getHealth()
@@ -64,7 +65,8 @@
             let configuration = URLSessionConfiguration.ephemeral
             MVFixtureURLProtocol.installIfEnabled(in: configuration, enabled: true)
             let session = URLSession(configuration: configuration)
-            let factory = try MVRequestFactory(baseURL: "https://fixture.invalid", authProvider: { .none })
+            let factory = try MVRequestFactory(
+                baseURL: "https://fixture.invalid", deviceName: "Test iPhone", authProvider: { .none })
             let client = MVApiClient(requestFactory: factory, urlSession: session)
 
             do {

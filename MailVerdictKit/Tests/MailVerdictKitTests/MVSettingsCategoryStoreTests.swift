@@ -5,7 +5,8 @@ import XCTest
 final class MVSettingsCategoryStoreTests: XCTestCase {
 
     private func makeStore(category: MVSettingsCategory = .retry) throws -> MVSettingsCategoryStore {
-        let factory = try MVRequestFactory(baseURL: "https://example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://example.com", deviceName: "Test iPhone", authProvider: { .none })
         return MVSettingsCategoryStore(category: category, apiClient: MVApiClient(requestFactory: factory))
     }
 

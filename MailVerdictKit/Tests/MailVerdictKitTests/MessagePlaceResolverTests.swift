@@ -51,7 +51,8 @@ final class MessagePlaceResolverEndToEndTests: XCTestCase {
     func testAnUnreachableServerIsNotReportedAsAMissingMessage() async throws {
         MVStubURLProtocol.stub = .init(statusCode: 503, headers: [:], body: Data())
         let client = MVApiClient(
-            requestFactory: try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none }),
+            requestFactory: try MVRequestFactory(
+                baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none }),
             urlSession: MVStubURLProtocol.makeSession())
 
         let resolution = await MVMessagePlaceResolver(apiClient: client).resolve(messageId: UUID())
@@ -72,7 +73,8 @@ final class MessagePlaceResolverEndToEndTests: XCTestCase {
             """
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data(json.utf8))
 
-        let factory = try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let resolver = MVMessagePlaceResolver(apiClient: client)
 
@@ -90,7 +92,8 @@ final class MessagePlaceResolverEndToEndTests: XCTestCase {
     func testA404BecomesTheNotFoundToast() async throws {
         MVStubURLProtocol.stub = .init(
             statusCode: 404, headers: [:], body: Data(#"{"detail":"Message not found"}"#.utf8))
-        let factory = try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         let resolver = MVMessagePlaceResolver(apiClient: client)
 

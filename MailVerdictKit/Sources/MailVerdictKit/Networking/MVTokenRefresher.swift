@@ -34,9 +34,6 @@ public final class MVOidcTokenHolder: @unchecked Sendable {
         get { lock.lock(); defer { lock.unlock() }; return current }
         set { lock.lock(); defer { lock.unlock() }; current = newValue }
     }
-
-    /// The credential a request factory's `authProvider` returns.
-    public var authMode: MVAuthMode { .oidc(tokens) }
 }
 
 /// Keeps one sign-in alive: renews the access token before and after it lapses, and stores each

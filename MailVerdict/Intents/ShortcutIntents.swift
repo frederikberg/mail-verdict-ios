@@ -1,6 +1,7 @@
 import AppIntents
 import Foundation
 import MailVerdictKit
+import UIKit
 
 // New Message and Open Tickets, and `land(on:)` every action here uses, are in `SharedIntents/`.
 
@@ -92,8 +93,9 @@ struct UnifiedViewEntityQuery: EntityQuery {
         await allViews()
     }
 
+    @MainActor
     private func allViews() async -> [UnifiedViewEntity] {
-        guard let client = MVKeychainCredentialStore().signedInClient(),
+        guard let client = MVKeychainCredentialStore().signedInClient(deviceName: UIDevice.current.name),
             let views = try? await client.listUnifiedFolders()
         else { return [] }
         return views.map { UnifiedViewEntity(id: $0.id, name: $0.unifiedName, emoji: $0.emoji) }

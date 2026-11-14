@@ -191,7 +191,8 @@ final class MVIntentReversalTests: XCTestCase {
         let ledger = makeTestLedger(transport: transport)
         MVStubURLProtocol.reset()
         let client = MVApiClient(
-            requestFactory: try MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none }),
+            requestFactory: try MVRequestFactory(
+                baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none }),
             urlSession: MVStubURLProtocol.makeSession())
         let suite = try XCTUnwrap(UserDefaults(suiteName: "mailboxes-refusal-\(UUID())"))
         let mailboxes = MailboxesStore(

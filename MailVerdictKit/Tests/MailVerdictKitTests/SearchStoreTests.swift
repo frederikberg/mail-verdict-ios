@@ -10,7 +10,8 @@ final class SearchStoreTests: XCTestCase {
     }
 
     private func makeStore(defaults: UserDefaults, initialQuery: String? = nil) -> SearchStore {
-        let factory = try! MVRequestFactory(baseURL: "https://stub.example.com", authProvider: { .none })
+        let factory = try! MVRequestFactory(
+            baseURL: "https://stub.example.com", deviceName: "Test iPhone", authProvider: { .none })
         let client = MVApiClient(requestFactory: factory, urlSession: MVStubURLProtocol.makeSession())
         return SearchStore(
             apiClient: client, persistence: SearchPersistence(defaults: defaults), initialQuery: initialQuery

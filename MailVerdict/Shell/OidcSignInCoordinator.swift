@@ -20,8 +20,6 @@ final class OidcSignInCoordinator: NSObject, ASWebAuthenticationPresentationCont
     /// Why a sign-in could not start or finish, in words for the sign-in screen.
     struct Failure: Error {
         let message: String
-        /// The server offers no single sign-in, so the manual modes are the way in.
-        let unavailable: Bool
     }
 
     private let oidc = MVOidcClient()
@@ -35,13 +33,14 @@ final class OidcSignInCoordinator: NSObject, ASWebAuthenticationPresentationCont
         let base = backendURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let config: AuthConfigResponse
         do {
-            let factory = try MVRequestFactory(baseURL: base, authProvider: { .none })
+            let factory = try MVRequestFactory(
+                baseURL: base, deviceName: UIDevice.current.name, authProvider: { nil })
             config = try await MVApiClient(requestFactory: factory).getAuthConfig()
         } catch {
-            throw Failure(message: error.mvUserMessage, unavailable: false)
+            throw Failure(message: error.mvUserMessage)
         }
         guard config.clientId != nil else {
-            throw Failure(message: "This server has no single sign-in.", unavailable: true)
+            throw Failure(message: "This server has no single sign-in.")
         }
 
         do {
@@ -50,7 +49,7 @@ final class OidcSignInCoordinator: NSObject, ASWebAuthenticationPresentationCont
             let state = MVPkce.randomURLSafeString()
             let url = try oidc.authorizationURL(config: config, metadata: metadata, pkce: pkce, state: state)
             guard let scheme = URL(string: config.redirectUri)?.scheme else {
-                throw Failure(message: "The server's sign-in address could not be used.", unavailable: false)
+                throw Failure(message: "The server's sign-in address could not be used.")
             }
             guard let callback = try await present(url, callbackScheme: scheme) else { return .cancelled }
             let code = try oidc.parseCallback(callback, expectedState: state)
@@ -59,7 +58,7 @@ final class OidcSignInCoordinator: NSObject, ASWebAuthenticationPresentationCont
         } catch let failure as Failure {
             throw failure
         } catch let error as MVOidcError {
-            throw Failure(message: Self.message(for: error), unavailable: error == .signInUnavailable)
+            throw Failure(message: Self.message(for: error))
         }
     }
 
@@ -78,7 +77,7 @@ final class OidcSignInCoordinator: NSObject, ASWebAuthenticationPresentationCont
             self.session = session
             if !session.start() {
                 continuation.resume(
-                    returning: .failure(Failure(message: "The sign-in sheet could not be opened.", unavailable: false)))
+                    returning: .failure(Failure(message: "The sign-in sheet could not be opened.")))
             }
         }
         session = nil
@@ -86,7 +85,7 @@ final class OidcSignInCoordinator: NSObject, ASWebAuthenticationPresentationCont
         case .success(let callback): return callback
         case .failure(let error as ASWebAuthenticationSessionError) where error.code == .canceledLogin: return nil
         case .failure(let error as Failure): throw error
-        case .failure(let error): throw Failure(message: error.mvUserMessage, unavailable: false)
+        case .failure(let error): throw Failure(message: error.mvUserMessage)
         }
     }
 

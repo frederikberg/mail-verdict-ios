@@ -180,7 +180,8 @@ public struct MVApiClient: Sendable {
         let first = try await transmit(
             path: path, method: method, query: query, body: body, contentType: contentType, timeout: timeout)
         guard let http = first.response as? HTTPURLResponse,
-            MVError.from(statusCode: http.statusCode, body: first.data).isAuthenticationFailure
+            case let refusal = MVError.from(statusCode: http.statusCode, body: first.data),
+            refusal.isAuthenticationFailure, !refusal.isDeviceRevoked
         else { return (first.data, first.response) }
 
         // The refused request never ran (a 401, or the proxy's 403 in front of the app), so
