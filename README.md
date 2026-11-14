@@ -17,9 +17,9 @@ redirect `mailverdict://auth/callback`) and keeps the session alive by refreshin
 you stay signed in until you sign out. The share extension and Shortcuts use the same session.
 Administrators see the server-wide settings under Advanced; ordinary users do not.
 
-Under **Advanced** a server without single sign-on takes a bearer token, a username and password
-for basic auth, or nothing (a LAN, Tailscale or VPN install with no proxy). The credential is held
-in the Keychain, everything else in `UserDefaults`.
+The server accepts only an OpenID Connect bearer token, so signing in is the way in; under
+**Advanced** an access token issued by the server's identity provider can be pasted instead. The
+credential is held in the Keychain, everything else in `UserDefaults`.
 
 ## Reading offline
 

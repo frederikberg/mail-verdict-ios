@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The README's connecting section says the server accepts only an OpenID Connect bearer token,
+  instead of listing basic auth and no credential as modes.
 - Push registration goes to the shared push relay at `push.frederikberg.net` and names the app in
   the request. The server's `push.apns_relay_urls` must list that URL.
 
