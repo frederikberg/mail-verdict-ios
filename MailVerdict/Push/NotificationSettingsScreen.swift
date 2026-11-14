@@ -198,7 +198,7 @@ private struct NotificationSettingsForm: View {
     private var otherDevicesSection: some View {
         Section("Other Devices") {
             ForEach(store.otherDevices) { device in
-                let isPhone = device.transport == .apns
+                let isPhone = device.transport.isPhone
                 HStack(spacing: 12) {
                     Image(systemName: isPhone ? "iphone" : "desktopcomputer")
                         .foregroundStyle(.secondary)
