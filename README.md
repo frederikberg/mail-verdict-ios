@@ -24,8 +24,9 @@ Keychain, everything else in `UserDefaults`.
 
 Every request carries the phone's name in `X-Device-Name`, so the server's list of signed-in
 devices can show it (iOS reports the generic model name, such as "iPhone", unless the device name
-entitlement is granted). Signing out revokes the refresh token at the identity provider as well as
-clearing the phone, and a server that revokes the device from its list signs the app out the next
+entitlement is granted). Signing out first removes the phone's push registration on the server and ends its
+sign-in in the server's device list (best effort, a few seconds at most), then revokes the refresh
+token at the identity provider and clears the phone, push keys included, and a server that revokes the device from its list signs the app out the next
 time it asks, with the message "This device was signed out".
 
 ## Reading offline

@@ -1,6 +1,7 @@
 import Foundation
 import MailVerdictKit
 import Observation
+import Push
 import SwiftUI
 import UIKit
 
@@ -28,6 +29,8 @@ final class AppEnvironment {
 
     private(set) var router: Router
     private(set) var connection: Connection?
+    /// The token set the connection sends, kept so a sign-out can revoke it as it is by then.
+    private var tokenHolder: MVOidcTokenHolder?
 
     /// Set when the backend refused the stored credential, so the shell can offer a way back that
     /// is distinct from first launch.
@@ -168,35 +171,67 @@ final class AppEnvironment {
         connection?.liveEventHub.disconnect()
         connection?.intentLedger.stop()
         connection?.me.clear()
-        revokeAtProvider(credentials.read())
+        let holder = tokenHolder
+        clearPushLocally()
         credentials.write(nil)
         credentials.writeBackendURL(nil)
         connection = nil
+        tokenHolder = nil
+        finishSignOut(holder: holder, server: nil, subscriptionId: nil)
         lastAuthFailure = detail
         router.gate = .tokenRejected
     }
 
+    /// Signs out on this phone at once, then tells the server what it can while the in-memory
+    /// credential still works: delete this device's push registration, end this sign-in, and end
+    /// the session at the provider. Offline, the phone is signed out all the same.
     func signOut() {
+        let holder = tokenHolder
+        let server = connection.map { ServerSignOut(api: $0.apiClient) }
+        let subscriptionId = PushRecordStore().load(serverOrigin: pushServerOrigin)?.subscriptionId
         connection?.liveEventHub.disconnect()
         connection?.intentLedger.stop()
         connection?.me.clear()
         // Signed out, no mail stays on the device; the instance ignores any save still on its way.
         if let offlineCache = connection?.offlineCache { Task { await offlineCache.discard() } }
         MVOfflineCache.removeAll(under: Self.offlineCacheBase)
-        revokeAtProvider(credentials.read())
+        clearPushLocally()
         credentials.write(nil)
         credentials.writeBackendURL(nil)
         connection = nil
+        tokenHolder = nil
+        finishSignOut(holder: holder, server: server, subscriptionId: subscriptionId)
         lastAuthFailure = nil
         router = Router(gate: .needsConfiguration)
     }
 
-    /// Ends the sign-in at the provider as well, so a copy of the refresh token anywhere is
-    /// worthless. After the local copy is the caller's to clear, and not waited for: an offline
-    /// phone still signs out, and the session then lives on at the provider until it expires.
-    private func revokeAtProvider(_ tokens: MVOidcTokens?) {
-        guard let tokens else { return }
-        Task.detached { try? await MVOidcClient().revoke(tokens) }
+    private var pushServerOrigin: String { PushServerOrigin.origin(of: backendURL) ?? backendURL }
+
+    /// The phone's own copy of the push registration: the content key the notification extension
+    /// opens alerts with, the record, and the APNs registration. A push that still arrives is
+    /// unreadable.
+    private func clearPushLocally() {
+        PushLocalSignOut.clear(
+            serverOrigin: pushServerOrigin, records: PushRecordStore(),
+            installations: PushKeychainInstallationStore())
+        UIApplication.shared.unregisterForRemoteNotifications()
+    }
+
+    /// What is left of a sign-out once the phone itself is clear: the server steps, then the
+    /// provider. The provider gets the token set as it is by then, since the server steps may
+    /// have renewed it and the refresh token they replaced no longer revokes anything. Not
+    /// waited for, and kept alive in the background for as long as iOS allows.
+    private func finishSignOut(holder: MVOidcTokenHolder?, server: ServerSignOut?, subscriptionId: UUID?) {
+        guard let holder else { return }
+        let assertion = BackgroundAssertion()
+        assertion.task = UIApplication.shared.beginBackgroundTask(withName: "MailVerdict.signOut") {
+            MainActor.assumeIsolated { assertion.end() }
+        }
+        Task { @MainActor in
+            await server?.run(subscriptionId: subscriptionId, timeout: 5)
+            try? await MVOidcClient().revoke(holder.tokens)
+            assertion.end()
+        }
     }
 
     /// The stream's refusal says nothing about why, so one ordinary request is asked: when the
@@ -280,6 +315,7 @@ final class AppEnvironment {
         // each renewal and is shared by the API client and the live stream.
         guard let tokens = credentials.read() else { return false }
         let holder = MVOidcTokenHolder(tokens)
+        tokenHolder = holder
         let refresher = credentials.tokenRefresher(holder: holder)
         guard
             let factory = try? MVRequestFactory(

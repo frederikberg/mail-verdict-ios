@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Signing out removes this phone's push registration on the server and ends its sign-in there
+  (both best effort, a few seconds at most, so an offline phone still signs out), then deletes the
+  push content key and the registration record on the phone, so a late alert stays unreadable.
 - Every request carries the phone's name in `X-Device-Name`, for the server's list of signed-in
   devices.
 - Signing out revokes the refresh token at the identity provider, not only on the phone.

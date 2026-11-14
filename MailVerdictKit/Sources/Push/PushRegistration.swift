@@ -83,6 +83,11 @@ public struct PushRecordStore: @unchecked Sendable {
         guard let data = try? JSONEncoder().encode(record) else { return }
         defaults.set(data, forKey: Self.keyPrefix + serverOrigin)
     }
+
+    /// Forgets everything this install told one server about its push registration.
+    public func remove(serverOrigin: String) {
+        defaults.removeObject(forKey: Self.keyPrefix + serverOrigin)
+    }
 }
 
 public enum PushServerOrigin {
