@@ -55,6 +55,7 @@ public struct MailboxesUnifiedRow: Identifiable, Sendable, Equatable {
     public let name: String
     public let emoji: String?
     public let unreadCount: Int
+    public let totalCount: Int
     public let contributingAccountEmojis: [String]
 
     public var anchorId: String { "unified:\(id)" }
@@ -72,6 +73,9 @@ public final class MailboxesStore {
     public private(set) var accountSections: [MailboxesAccountSection] = []
     public private(set) var deadOutboxBannerText: String?
     public private(set) var bellBadgeCount: Int = 0
+    /// The person's `mail.show_folder_totals` setting: rows show their total beside the unread
+    /// count. Off until the server says otherwise, the setting's own default.
+    public private(set) var showFolderTotals = false
     public private(set) var isLoading = false
     public private(set) var loadError: String?
     public private(set) var hasAnyAccount = true
@@ -188,11 +192,13 @@ public final class MailboxesStore {
             return
         }
         async let countsApplied = plan.counts ? reloadCounts(plan) : true
+        async let totalsSetting: Void = plan.settings ? reloadFolderTotalsSetting() : ()
         async let badge: Void = plan.badge ? reloadBadge() : ()
         async let deadOutbox: Void = plan.deadOutbox ? reloadDeadOutbox() : ()
         let applied = await countsApplied
         await badge
         await deadOutbox
+        await totalsSetting
         // Counts for a screen not fully loaded yet, or an account it does not show, need the rest.
         if !applied { await loadEverything() }
         saveSnapshotToDiskCache()
@@ -207,9 +213,11 @@ public final class MailboxesStore {
             async let unified = apiClient.listUnifiedFolders()
             async let deadOutbox = apiClient.listOutbox(status: "dead")
             async let badge = apiClient.getAlertBadge(folderIds: nil)
+            async let totalsSetting: Void = reloadFolderTotalsSetting()
 
             let (accountList, unifiedList, deadList, badgeResponse) =
                 try await (accounts, unified, deadOutbox, badge)
+            await totalsSetting
 
             hasAnyAccount = !accountList.isEmpty
             membership.update(from: unifiedList)
@@ -225,7 +233,7 @@ public final class MailboxesStore {
             unifiedRows = unifiedList.map { view in
                 MailboxesUnifiedRow(
                     id: view.id, name: view.unifiedName, emoji: view.emoji,
-                    unreadCount: view.unreadCount,
+                    unreadCount: view.unreadCount, totalCount: view.totalCount,
                     contributingAccountEmojis: MailboxesSupport.contributingAccounts(
                         for: view, accounts: accountList
                     ).map { $0.emoji ?? "✉️" }
@@ -284,6 +292,7 @@ public final class MailboxesStore {
         let updated = unifiedList.map { view in
             MailboxesUnifiedRow(
                 id: view.id, name: view.unifiedName, emoji: view.emoji, unreadCount: view.unreadCount,
+                totalCount: view.totalCount,
                 contributingAccountEmojis: previous[view.id]?.contributingAccountEmojis ?? []
             )
         }
@@ -294,6 +303,14 @@ public final class MailboxesStore {
     private func reloadBadge() async {
         guard let badge = try? await apiClient.getAlertBadge(folderIds: nil) else { return }
         if badge.count != bellBadgeCount { bellBadgeCount = badge.count }
+    }
+
+    /// A failed read keeps the value already shown: a dropped request must not hide the totals.
+    private func reloadFolderTotalsSetting() async {
+        guard let data = try? await apiClient.getSettings(category: .mail),
+            let shown = MailboxesSupport.showFolderTotals(fromMailSettings: data)
+        else { return }
+        if shown != showFolderTotals { showFolderTotals = shown }
     }
 
     private func reloadDeadOutbox() async {
@@ -516,7 +533,7 @@ public final class MailboxesStore {
         unifiedRows = snapshot.unified.map {
             MailboxesUnifiedRow(
                 id: $0.id, name: $0.name, emoji: $0.emoji, unreadCount: $0.unreadCount,
-                contributingAccountEmojis: $0.contributingAccountEmojis
+                totalCount: $0.totalCount, contributingAccountEmojis: $0.contributingAccountEmojis
             )
         }
         accountSections = snapshot.accounts.map { cached in
@@ -540,7 +557,7 @@ public final class MailboxesStore {
             unified: unifiedRows.map {
                 MVMailboxesCachedUnified(
                     id: $0.id, name: $0.name, emoji: $0.emoji, unreadCount: $0.unreadCount,
-                    contributingAccountEmojis: $0.contributingAccountEmojis
+                    totalCount: $0.totalCount, contributingAccountEmojis: $0.contributingAccountEmojis
                 )
             },
             accounts: accountSections.map { section in

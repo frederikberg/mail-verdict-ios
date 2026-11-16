@@ -147,7 +147,7 @@ struct MailboxesScreen: View {
             } else {
                 ForEach(store.unifiedRows) { row in
                     NavigationLink(value: Route.list(.unified(viewId: row.id, name: row.name), aroundMessageId: nil)) {
-                        UnifiedRowLabel(row: row)
+                        UnifiedRowLabel(row: row, showTotal: store.showFolderTotals)
                     }
                     .id(row.anchorId)
                 }
@@ -187,7 +187,7 @@ struct MailboxesScreen: View {
                         value: Route.list(
                             .folder(accountId: section.id, folderId: folder.id), aroundMessageId: nil)
                     ) {
-                        FolderRowLabel(folder: folder)
+                        FolderRowLabel(folder: folder, showTotal: store.showFolderTotals)
                     }
                     .id(folder.anchorId)
                     .contextMenu { folderContextMenu(accountId: section.id, folder: folder) }
@@ -358,6 +358,7 @@ private struct PendingDeleteFolder {
 
 private struct UnifiedRowLabel: View {
     let row: MailboxesUnifiedRow
+    let showTotal: Bool
 
     var body: some View {
         HStack {
@@ -376,6 +377,11 @@ private struct UnifiedRowLabel: View {
             if row.unreadCount > 0 {
                 Chip(text: "\(row.unreadCount)", tint: .secondary)
             }
+            if let total = MailboxesSupport.shownTotal(
+                specialUse: nil, totalCount: row.totalCount, showTotals: showTotal)
+            {
+                FolderTotalText(count: total)
+            }
         }
         .foregroundStyle(.primary)
     }
@@ -383,6 +389,7 @@ private struct UnifiedRowLabel: View {
 
 private struct FolderRowLabel: View {
     let folder: MailboxesFolderRow
+    let showTotal: Bool
 
     var body: some View {
         HStack {
@@ -392,8 +399,27 @@ private struct FolderRowLabel: View {
             if folder.badgeCount > 0 {
                 Chip(text: "\(folder.badgeCount)", tint: .secondary)
             }
+            if let total = MailboxesSupport.shownTotal(
+                specialUse: folder.specialUse, totalCount: folder.totalCount, showTotals: showTotal)
+            {
+                FolderTotalText(count: total)
+            }
         }
         .foregroundStyle(.primary)
+    }
+}
+
+/// A row's total message count, dimmed, in a fixed-width trailing column so the totals of every
+/// row line up whether or not an unread badge sits before them.
+private struct FolderTotalText: View {
+    let count: Int
+
+    var body: some View {
+        Text(MailboxesSupport.shortCount(count))
+            .font(.subheadline.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 34, alignment: .trailing)
+            .accessibilityLabel("\(count) messages")
     }
 }
 

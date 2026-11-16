@@ -28,10 +28,13 @@ public struct MailboxesReloadPlan: Equatable, Sendable {
     public var countsForAllAccounts = false
     public var badge = false
     public var deadOutbox = false
+    /// The `mail` settings, which say whether rows show their totals.
+    public var settings = false
 
     public init(
         everything: Bool = false, counts: Bool = false, countAccountIds: Set<UUID> = [],
-        countsForAllAccounts: Bool = false, badge: Bool = false, deadOutbox: Bool = false
+        countsForAllAccounts: Bool = false, badge: Bool = false, deadOutbox: Bool = false,
+        settings: Bool = false
     ) {
         self.everything = everything
         self.counts = counts
@@ -39,6 +42,7 @@ public struct MailboxesReloadPlan: Equatable, Sendable {
         self.countsForAllAccounts = countsForAllAccounts
         self.badge = badge
         self.deadOutbox = deadOutbox
+        self.settings = settings
     }
 
     public static let all = MailboxesReloadPlan(everything: true)
@@ -52,6 +56,7 @@ public struct MailboxesReloadPlan: Equatable, Sendable {
         countsForAllAccounts = countsForAllAccounts || other.countsForAllAccounts
         badge = badge || other.badge
         deadOutbox = deadOutbox || other.deadOutbox
+        settings = settings || other.settings
     }
 }
 
@@ -114,6 +119,31 @@ public enum MailboxesSupport {
     /// for it. Port of the web's `getFolderBadgeCount`.
     public static func folderBadgeCount(specialUse: String?, unreadCount: Int, totalCount: Int) -> Int {
         specialUse == "drafts" ? totalCount : unreadCount
+    }
+
+    /// The total a row shows beside its badge, or `nil` for none: only with the person's
+    /// `mail.show_folder_totals` on, and never for Drafts, whose badge already is its total. Port
+    /// of the web's `showTotal` in `app-sidebar.tsx`.
+    public static func shownTotal(specialUse: String?, totalCount: Int, showTotals: Bool) -> Int? {
+        showTotals && specialUse != "drafts" ? totalCount : nil
+    }
+
+    /// `show_folder_totals` out of a `GET /api/settings/mail` body; `nil` when the body is not
+    /// readable, so a failed parse never reads as the setting being off.
+    public static func showFolderTotals(fromMailSettings data: Data) -> Bool? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return (object["show_folder_totals"] as? Bool) ?? false
+    }
+
+    /// A count short enough for a row's trailing column: 1240 is "1.2k", 12400 is "12k". Port of
+    /// the web's `formatCount` (`lib/format.ts`).
+    public static func shortCount(_ count: Int) -> String {
+        if count < 1000 { return "\(count)" }
+        if count < 10_000 {
+            let tenths = Int((Double(count) / 100).rounded())
+            return tenths % 10 == 0 ? "\(tenths / 10)k" : "\(tenths / 10).\(tenths % 10)k"
+        }
+        return "\(Int((Double(count) / 1000).rounded()))k"
     }
 
     /// Which accounts feed a merged unified folder, in first-seen order, deduplicated — port of
@@ -197,6 +227,8 @@ public enum MailboxesSupport {
                 plan.badge = true
             case .outboxUpdated:
                 plan.deadOutbox = true
+            case .settingsChanged(let category):
+                if category == nil || category == MVSettingsCategory.mail.rawValue { plan.settings = true }
             default:
                 continue
             }
