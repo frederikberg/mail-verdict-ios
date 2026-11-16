@@ -57,16 +57,31 @@ public struct MVMailboxesCachedUnified: Codable, Sendable, Equatable, Identifiab
     public let name: String
     public let emoji: String?
     public let unreadCount: Int
+    /// Absent from a cache file written before this field existed, in which case it decodes as 0
+    /// until the next `save()`.
+    public let totalCount: Int
     public let contributingAccountEmojis: [String]
 
     public init(
-        id: UUID, name: String, emoji: String?, unreadCount: Int, contributingAccountEmojis: [String]
+        id: UUID, name: String, emoji: String?, unreadCount: Int, totalCount: Int = 0,
+        contributingAccountEmojis: [String]
     ) {
         self.id = id
         self.name = name
         self.emoji = emoji
         self.unreadCount = unreadCount
+        self.totalCount = totalCount
         self.contributingAccountEmojis = contributingAccountEmojis
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        emoji = try container.decodeIfPresent(String.self, forKey: .emoji)
+        unreadCount = try container.decode(Int.self, forKey: .unreadCount)
+        totalCount = try container.decodeIfPresent(Int.self, forKey: .totalCount) ?? 0
+        contributingAccountEmojis = try container.decode([String].self, forKey: .contributingAccountEmojis)
     }
 }
 

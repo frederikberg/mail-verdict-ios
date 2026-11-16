@@ -114,6 +114,36 @@ final class MailboxesSupportFolderBadgeTests: XCTestCase {
     }
 }
 
+final class MailboxesSupportFolderTotalTests: XCTestCase {
+
+    func testTheTotalShowsOnlyWithTheSettingOn() {
+        XCTAssertEqual(MailboxesSupport.shownTotal(specialUse: "inbox", totalCount: 30, showTotals: true), 30)
+        XCTAssertNil(MailboxesSupport.shownTotal(specialUse: "inbox", totalCount: 30, showTotals: false))
+        XCTAssertEqual(MailboxesSupport.shownTotal(specialUse: nil, totalCount: 30, showTotals: true), 30)
+    }
+
+    func testDraftsNeverRepeatsItsTotalBesideTheBadge() {
+        XCTAssertNil(MailboxesSupport.shownTotal(specialUse: "drafts", totalCount: 7, showTotals: true))
+    }
+
+    func testTheSettingIsReadFromTheMailCategoryBody() {
+        XCTAssertEqual(
+            MailboxesSupport.showFolderTotals(fromMailSettings: Data(#"{"show_folder_totals":true}"#.utf8)), true)
+        XCTAssertEqual(
+            MailboxesSupport.showFolderTotals(fromMailSettings: Data(#"{"show_folder_totals":false}"#.utf8)), false)
+        XCTAssertEqual(MailboxesSupport.showFolderTotals(fromMailSettings: Data(#"{}"#.utf8)), false)
+        XCTAssertNil(MailboxesSupport.showFolderTotals(fromMailSettings: Data("not json".utf8)))
+    }
+
+    func testShortCountMatchesTheWeb() {
+        XCTAssertEqual(MailboxesSupport.shortCount(30), "30")
+        XCTAssertEqual(MailboxesSupport.shortCount(999), "999")
+        XCTAssertEqual(MailboxesSupport.shortCount(1000), "1k")
+        XCTAssertEqual(MailboxesSupport.shortCount(1240), "1.2k")
+        XCTAssertEqual(MailboxesSupport.shortCount(12_400), "12k")
+    }
+}
+
 final class MailboxesSupportContributingAccountsTests: XCTestCase {
 
     private func account(_ id: UUID, name: String) -> AccountResponse {
@@ -226,8 +256,14 @@ final class MailboxesSupportReloadPlanTests: XCTestCase {
     }
 
     func testAnUnrelatedInvalidationOrAnEmptyBatchReloadsNothing() {
-        XCTAssertTrue(plan([.settingsChanged(category: "mail")]).isEmpty)
+        XCTAssertTrue(plan([.settingsChanged(category: "orders")]).isEmpty)
         XCTAssertTrue(plan([]).isEmpty)
+    }
+
+    /// `mail` holds `show_folder_totals`; a change of unnamed category may be it too.
+    func testAMailOrUnnamedSettingsChangeRereadsTheSettings() {
+        XCTAssertEqual(plan([.settingsChanged(category: "mail")]), MailboxesReloadPlan(settings: true))
+        XCTAssertEqual(plan([.settingsChanged(category: nil)]), MailboxesReloadPlan(settings: true))
     }
 
     /// A mail event can change a count and nothing else on this screen: no account list, sync

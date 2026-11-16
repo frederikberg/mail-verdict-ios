@@ -154,6 +154,10 @@ import MailVerdictKit
             )
             register(.get, "/api/contacts/photo-index", ContactPhotoIndexResponse(byEmail: [:], partial: false))
             register(.get, "/api/identities", identities)
+            // Mailboxes reads `show_folder_totals` from here; on, so the sweep pictures the totals.
+            MVFixtureURLProtocol.register(method: "GET", path: "/api/settings/mail") {
+                Data(#"{"show_folder_totals":true,"mark_read_on_file_to_archive_or_junk":true}"#.utf8)
+            }
 
             // An ordinary fixture response finishes loading the instant it is delivered, which
             // `MVSseClient` reads as the connection dropping the moment it came up — sending it
