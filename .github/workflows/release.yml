@@ -38,7 +38,7 @@ jobs:
 
   build:
     needs: compile
-    runs-on: macos-26
+    runs-on: xcode-27
     # The 6-hour default would hold a scarce Mac runner for a whole afternoon before failing.
     timeout-minutes: 45
 
@@ -51,7 +51,7 @@ jobs:
       # The runner image's default Xcode changes underneath you; pin it.
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.6'
+          xcode-version: '27.1'
 
       # fastlane is pinned in the Gemfile rather than installed via brew, so CI and a rented Mac
       # resolve the same versions.
