@@ -59,6 +59,31 @@ final class ComposeReplyIdentityTests: XCTestCase {
         XCTAssertEqual(draft.cc, ["carol@example.com", "dave@example.com"])
     }
 
+    func testReplyToAMessageSentFromAnOwnAliasGoesToItsOriginalTo() {
+        let source = Self.message(
+            from: "Me <alias@example.com>", to: ["Bob <bob@example.com>"], cc: ["Carol <carol@example.com>"])
+        let draft = ComposeReply.reply(
+            to: source, ownAddresses: ["me@example.com", "alias@example.com"], mode: .reply)
+        XCTAssertEqual(draft.to, ["bob@example.com"])
+        XCTAssertEqual(draft.cc, [])
+    }
+
+    func testReplyAllToAnOwnSentMessageKeepsToAndCcMinusOwnAddresses() {
+        let source = Self.message(
+            from: "me@example.com", to: ["Bob <bob@example.com>", "me@example.com"],
+            cc: ["Carol <carol@example.com>", "alias@example.com"])
+        let draft = ComposeReply.reply(
+            to: source, ownAddresses: ["me@example.com", "alias@example.com"], mode: .replyAll)
+        XCTAssertEqual(draft.to, ["bob@example.com"])
+        XCTAssertEqual(draft.cc, ["carol@example.com"])
+    }
+
+    func testAMessageSentOnlyToOneselfIsAnsweredToItsSender() {
+        let source = Self.message(from: "me@example.com", to: ["me@example.com"])
+        let draft = ComposeReply.reply(to: source, ownAddresses: ["me@example.com"], mode: .reply)
+        XCTAssertEqual(draft.to, ["me@example.com"])
+    }
+
     func testPlainReplyCopiesNobodyAndNeverDoublesThePrefix() {
         let draft = ComposeReply.reply(
             to: Self.message(cc: ["carol@example.com"], subject: "RE: Plans"), ownAddresses: [], mode: .reply)

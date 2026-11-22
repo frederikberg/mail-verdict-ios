@@ -28,23 +28,31 @@ public struct ComposeForwardDraft: Equatable, Sendable {
 
 public enum ComposeReply {
 
-    /// `ownAddresses` are left out of a reply-all's Cc: the account's own login address and every
-    /// identity it sends as, since a reply to a message that reached one of them should not copy
-    /// the person writing it.
+    /// `ownAddresses` are the account's own login address and every identity it sends as. They are
+    /// left out of a reply-all's Cc, since a reply to a message that reached one of them should not
+    /// copy the person writing it. A message sent from one of them (a mail in Sent, or one's own
+    /// message inside a thread) is answered to whoever it was sent to; only a mail addressed to
+    /// nobody else falls back to its sender.
     public static func reply(
         to source: MessageDetail, ownAddresses: [String], mode: ComposeReplyMode,
         formatDate: (Date?) -> String = MVDateFormat.fullDate
     ) -> ComposeReplyDraft {
+        let own = Set(ownAddresses.map { extractEmail($0).lowercased() })
         // RFC 5322: a reply goes to Reply-To when the message names one, otherwise to From.
         let senderEmail = extractEmail(source.fromAddr)
         let replyTo = splitAddressHeader(source.replyTo).map(extractEmail).filter { !$0.isEmpty }
-        let to = dedupe(replyTo.isEmpty ? (senderEmail.isEmpty ? [] : [senderEmail]) : replyTo, excluding: [])
+        let ownRecipients =
+            !senderEmail.isEmpty && own.contains(senderEmail.lowercased())
+            ? dedupe((source.toAddrs?.addresses ?? []).map(extractEmail), excluding: own) : []
+        let to =
+            ownRecipients.isEmpty
+            ? dedupe(replyTo.isEmpty ? (senderEmail.isEmpty ? [] : [senderEmail]) : replyTo, excluding: [])
+            : ownRecipients
 
         var cc: [String] = []
         if mode == .replyAll {
             let others = ((source.toAddrs?.addresses ?? []) + (source.ccAddrs?.addresses ?? [])).map(extractEmail)
-            let exclude = Set(ownAddresses.map { extractEmail($0).lowercased() } + to.map { $0.lowercased() })
-            cc = dedupe(others, excluding: exclude)
+            cc = dedupe(others, excluding: own.union(to.map { $0.lowercased() }))
         }
 
         var references = source.references ?? []
