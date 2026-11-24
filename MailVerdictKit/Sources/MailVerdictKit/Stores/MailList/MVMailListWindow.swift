@@ -37,7 +37,8 @@ public enum MVMailListWindow {
     ///
     /// The result covers the stretch the reader had loaded and no more — rows the fresh read
     /// found below the old last row are left for ordinary paging, so a refresh never grows the
-    /// list underneath the reader. Rows the fresh read did not reach (only possible once the
+    /// list underneath the reader — unless the loaded window already reached the folder's end,
+    /// in which case the fresh read is taken whole. Rows the fresh read did not reach (only possible once the
     /// window is deeper than one refresh reads) are kept as they were.
     ///
     /// `preserveIds` are rows a fresh read legitimately dropped but that must stay visible — an
@@ -49,6 +50,10 @@ public enum MVMailListWindow {
     ) -> (rows: [MessageSummary], hasMore: Bool) {
         guard let oldLast = current.last else { return (fresh, freshHasMore) }
         let effectiveFresh = withPreserved(fresh, from: current, preserveIds: preserveIds)
+
+        // Both reads reach the folder's end: the fresh read is the whole folder, a row returning
+        // below the old last one (an undone archive of the bottom row) included.
+        if !freshHasMore && !currentHasMore { return (effectiveFresh, false) }
 
         let reachedOldLast =
             !freshHasMore || (effectiveFresh.last.map { !sitsAbove($0, oldLast) } ?? false)

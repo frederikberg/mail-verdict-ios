@@ -17,6 +17,17 @@ final class MVMailListWindowTests: XCTestCase {
         XCTAssertTrue(merged.hasMore)
     }
 
+    /// Undoing the archive of a folder's oldest row: once both reads reach the folder's end,
+    /// the row coming back below the old last one is shown, with nothing left to page for.
+    func testARowComingBackBelowTheEndOfAFullyLoadedFolderIsShown() {
+        let merged = MVMailListWindow.mergeRefreshed(
+            current: testRows(1...2), fresh: testRows(1...3), freshHasMore: false, currentHasMore: false
+        )
+
+        XCTAssertEqual(ids(merged.rows), ids(testRows(1...3)))
+        XCTAssertFalse(merged.hasMore)
+    }
+
     /// A window deeper than one refresh reads keeps its unread-over tail as it was.
     func testRowsBeyondWhatTheRefreshReachedAreKept() {
         let merged = MVMailListWindow.mergeRefreshed(
@@ -34,11 +45,11 @@ final class MVMailListWindowTests: XCTestCase {
         let fresh = [testRow(1), testRow(3), testRow(4), testRow(5)]
 
         let preserved = MVMailListWindow.mergeRefreshed(
-            current: current, fresh: fresh, freshHasMore: false, currentHasMore: false,
+            current: current, fresh: fresh, freshHasMore: false, currentHasMore: true,
             preserveIds: [testUUID(2)]
         )
         let dropped = MVMailListWindow.mergeRefreshed(
-            current: current, fresh: fresh, freshHasMore: false, currentHasMore: false
+            current: current, fresh: fresh, freshHasMore: false, currentHasMore: true
         )
 
         XCTAssertEqual(ids(preserved.rows), ids(testRows(1...4)))
