@@ -30,6 +30,12 @@ extension MVApiClient {
         try await send(path: "/api/me/sign-ins")
     }
 
+    /// The caller's own access keys, with what each may do; read-only. A key is signed out
+    /// through its sign-in (`revokeOwnSignIn(id:)` with `signInId`).
+    public func listOwnAccessKeys() async throws -> [AccessKeyResponse] {
+        try await send(path: "/api/me/access-keys")
+    }
+
     /// Ends one of the caller's sign-ins; the current one included, whose next request is then
     /// refused.
     public func revokeOwnSignIn(id: UUID) async throws {

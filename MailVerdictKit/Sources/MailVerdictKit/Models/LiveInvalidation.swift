@@ -26,6 +26,9 @@ public enum MVLiveInvalidation: Sendable, Equatable {
     /// card and its event-details sheet are what this refreshes, never a mail toast or list
     /// refresh.
     case invitationOrEventChanged
+    /// `access_key.changed` -- one of the user's access keys was attached, changed, signed out or
+    /// removed.
+    case accessKeysChanged
     /// Every event name this app has no effect for — `pipeline.*`, and every `calendar.*` /
     /// `contact.*` besides `calendar.object`. Carrying the name rather than discarding it keeps
     /// this a decision a test can see, not a silent drop.

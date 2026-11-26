@@ -1,6 +1,292 @@
 {
   "components": {
     "schemas": {
+      "AccessKeyResponse": {
+        "description": "One access key. `scopes` are the ones held (a write scope implies its\nread scope); a write limit of null means every collection. The sign-in\nfields are null until the key has been used.",
+        "properties": {
+          "access": {
+            "enum": [
+              "full",
+              "scoped"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "addressbook_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Addressbook Write Ids"
+          },
+          "calendar_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Write Ids"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "last_refusal_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Refusal At"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "sign_in_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sign In Id"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "user_display_name": {
+            "title": "User Display Name",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "label",
+          "user_id",
+          "user_display_name",
+          "access",
+          "scopes",
+          "calendar_write_ids",
+          "addressbook_write_ids",
+          "created_at",
+          "sign_in_id",
+          "first_seen_at",
+          "last_seen_at",
+          "revoked_at",
+          "last_refusal_at"
+        ],
+        "title": "AccessKeyResponse",
+        "type": "object"
+      },
+      "AccessKeyUpdateRequest": {
+        "description": "The fields of a key to change; the rest stay as they are.\n\nSwitching `access` to `full` without naming scopes or limits clears them,\nand dropping a write scope without naming its limit clears the limit. A\nwrite scope the key did not hold must come with its limit, null meaning\nevery collection.\n`label` and the write limits take null to clear them.",
+        "properties": {
+          "access": {
+            "default": "full",
+            "enum": [
+              "full",
+              "scoped"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "addressbook_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Addressbook Write Ids"
+          },
+          "calendar_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Write Ids"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "calendar:read",
+                "calendar:write",
+                "contacts:read",
+                "contacts:write"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "title": "AccessKeyUpdateRequest",
+        "type": "object"
+      },
+      "AccessResponse": {
+        "description": "What the caller's own sign-in may do. `full` is everything its user\nmay do; `scoped` is exactly `scopes` (a write scope implies its read\nscope), with writes confined to the listed calendars or address books\nwhen a limit is set (null: every one).",
+        "properties": {
+          "addressbook_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Addressbook Write Ids"
+          },
+          "calendar_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Write Ids"
+          },
+          "mode": {
+            "enum": [
+              "full",
+              "scoped"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "scopes",
+          "calendar_write_ids",
+          "addressbook_write_ids"
+        ],
+        "title": "AccessResponse",
+        "type": "object"
+      },
       "AccountCreateRequest": {
         "description": "Request to create an account.",
         "properties": {
@@ -774,6 +1060,85 @@
           "failed_runs"
         ],
         "title": "AdminPipelineUserOut",
+        "type": "object"
+      },
+      "AdminSubjectRequest": {
+        "description": "A token subject (`sub` claim) to sign in as a user. `access` is `full`\n(everything the user may do, the default) or `scoped` to `scopes`\n(auth/grants.py); `label` names it in the list of access keys, and the\nwrite limits confine a scoped subject's writes to those calendars or\naddress books (null: every one).",
+        "properties": {
+          "access": {
+            "default": "full",
+            "enum": [
+              "full",
+              "scoped"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "addressbook_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Addressbook Write Ids"
+          },
+          "calendar_write_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Write Ids"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "scopes": {
+            "items": {
+              "enum": [
+                "calendar:read",
+                "calendar:write",
+                "contacts:read",
+                "contacts:write"
+              ],
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "subject": {
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject"
+        ],
+        "title": "AdminSubjectRequest",
         "type": "object"
       },
       "AdminUserCreateRequest": {
@@ -3197,6 +3562,20 @@
               }
             ],
             "title": "Tz"
+          },
+          "uid": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9._@:+=-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uid"
           }
         },
         "required": [
@@ -4558,8 +4937,11 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "The signed-in user. `role` is the effective one: the owner is admin\nwhatever the users table says.",
+        "description": "The signed-in user. `role` is the effective one: the owner is admin\nwhatever the users table says, and a scoped access key is never admin.",
         "properties": {
+          "access": {
+            "$ref": "#/components/schemas/AccessResponse"
+          },
           "disabled": {
             "title": "Disabled",
             "type": "boolean"
@@ -4598,7 +4980,8 @@
           "email",
           "display_name",
           "role",
-          "disabled"
+          "disabled",
+          "access"
         ],
         "title": "MeResponse",
         "type": "object"
@@ -7568,7 +7951,7 @@
           "transport": {
             "enum": [
               "webpush",
-              "apns"
+              "native"
             ],
             "title": "Transport",
             "type": "string"
@@ -8562,6 +8945,98 @@
           "data"
         ],
         "title": "SettingsUpdateRequest",
+        "type": "object"
+      },
+      "SignInResponse": {
+        "description": "One sign-in. `name` is what a phone or client calls itself\n(X-Device-Name); `current` is the sign-in making this request.",
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "phone",
+              "browser",
+              "machine"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "kind",
+          "name",
+          "subject",
+          "first_seen_at",
+          "last_seen_at",
+          "revoked_at",
+          "current"
+        ],
+        "title": "SignInResponse",
+        "type": "object"
+      },
+      "SignOutResponse": {
+        "description": "How many sign-ins a sign-out revoked.",
+        "properties": {
+          "revoked": {
+            "title": "Revoked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "title": "SignOutResponse",
         "type": "object"
       },
       "SpamReviewItem": {
@@ -11324,6 +11799,61 @@
         ]
       }
     },
+    "/admin/access-keys": {
+      "get": {
+        "description": "Every access key, or one user's: label first, then subject.",
+        "operationId": "list_access_keys_admin_access_keys_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccessKeyResponse"
+                  },
+                  "title": "Response List Access Keys Admin Access Keys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Access Keys",
+        "tags": [
+          "access-keys"
+        ]
+      }
+    },
     "/admin/accounts": {
       "get": {
         "description": "Every mail account, by display name, with its owner.",
@@ -11510,6 +12040,126 @@
         ]
       }
     },
+    "/admin/sign-ins": {
+      "get": {
+        "description": "Every sign-in, or one user's, or one kind's (`machine` is the list of\naccess keys).",
+        "operationId": "list_sign_ins_admin_sign_ins_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "phone",
+                    "browser",
+                    "machine"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SignInResponse"
+                  },
+                  "title": "Response List Sign Ins Admin Sign Ins Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sign Ins",
+        "tags": [
+          "sign-ins"
+        ]
+      }
+    },
+    "/admin/sign-ins/{sign_in_id}/revoke": {
+      "post": {
+        "description": "Revoke any sign-in.",
+        "operationId": "revoke_sign_in_admin_sign_ins__sign_in_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sign_in_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sign In Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Sign In",
+        "tags": [
+          "sign-ins"
+        ]
+      }
+    },
     "/admin/users": {
       "get": {
         "description": "Every user.",
@@ -11577,8 +12227,43 @@
       }
     },
     "/admin/users/{user_id}": {
+      "delete": {
+        "description": "Remove a user completely, in one transaction: their mail accounts (as\ndeleting each one does: its orders, then the account and its mirrored\nmailbox), their calendar and contact accounts, and then every row that\nnames them -- orders, files, rules, views, settings, alerts, push\ndevices, sign-ins and subjects -- and the user. Nothing on any mail or\nDAV server is touched. Their tokens are refused from then on, as an\nunknown subject's (with auth.auto_provision on, a later sign-in starts\nan empty new user).\n\n400 for the owner or the caller themselves; 409 while the glacier holds\nmail of one of their accounts; 501 if PostIMAP cannot delete what they\nown.",
+        "operationId": "remove_user_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove User",
+        "tags": [
+          "admin"
+        ]
+      },
       "patch": {
-        "description": "Rename a user, change their role, or disable or enable them. The owner\ncan be neither demoted nor disabled -- the configuration makes them admin\nregardless, so either change would only make this table lie.",
+        "description": "Rename a user, change their role, or disable or enable them. The owner\ncan be neither demoted nor disabled -- they are an enabled admin\nregardless (auth/principal.py), so either change would only make this\ntable lie.",
         "operationId": "update_user_admin_users__user_id__patch",
         "parameters": [
           {
@@ -11627,6 +12312,218 @@
         "summary": "Update User",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/admin/users/{user_id}/sign-out": {
+      "post": {
+        "description": "Revoke every sign-in of a user: their phones, their browsers and\ntheir machine clients. Their phones and browsers can sign in again; a\nmachine client's subject stays refused.",
+        "operationId": "sign_out_user_admin_users__user_id__sign_out_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignOutResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Out User",
+        "tags": [
+          "sign-ins"
+        ]
+      }
+    },
+    "/admin/users/{user_id}/subjects": {
+      "post": {
+        "description": "Let another token subject sign in as this user -- a second login, or\na machine client's, with the access it is given. 409 if the subject\nalready signs in as someone; 422 for a grant that cannot be stored or a\nwrite limit naming a collection that is not the user's own, or a write\nscope without its limit (the reasons are listed at PATCH\n/api/admin/users/{user_id}/subjects/{subject}).",
+        "operationId": "add_subject_admin_users__user_id__subjects_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSubjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Subject",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/admin/users/{user_id}/subjects/{subject}": {
+      "delete": {
+        "description": "Stop a token subject signing in as this user -- the owner's included\n-- and revoke the phones and machine clients recorded for it. 404 if it\nis not this user's; 400 for the subject this request signed in with,\nwhich would lock the caller out mid-request.",
+        "operationId": "remove_subject_admin_users__user_id__subjects__subject__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Subject",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "description": "Change a subject's label or grant. 404 if it is not this user's; 400\nfor the subject this request signed in with, whose grant would change\nunder the caller mid-request; 422 for a combination that cannot be\nstored (`unknown_scope`, `full_access_carries_no_scopes`,\n`calendar_limit_needs_calendar_write`,\n`addressbook_limit_needs_contacts_write`), a write scope the key did not\nhold before without saying where it may write (`calendar_limit_required`,\n`addressbook_limit_required`; null names \"every one\"), or a write limit\nnaming a collection that is not the user's own (`unknown_collection`).",
+        "operationId": "update_access_key_admin_users__user_id__subjects__subject__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "title": "Subject",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccessKeyUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessKeyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Access Key",
+        "tags": [
+          "access-keys"
         ]
       }
     },
@@ -11929,7 +12826,7 @@
         ]
       },
       "post": {
-        "description": "Register this device for the caller, or refresh it if `endpoint` is\nalready registered (see PushSubscriptionRepository.upsert).",
+        "description": "Register this device for the caller, or refresh it if `endpoint` is\nalready registered (see PushSubscriptionRepository.upsert). 400 for an\nendpoint that is, or resolves to, a non-public address\n(push/endpoint_guard.py).",
         "operationId": "register_push_subscription_alerts_subscriptions_post",
         "requestBody": {
           "content": {
@@ -11971,7 +12868,7 @@
     },
     "/alerts/subscriptions/native": {
       "post": {
-        "description": "Register a native device for the caller, or refresh the one\nregistered under this installation_id (see PushSubscriptionRepository.upsert_native). 400 if\nrelay_url is not one push.apns_relay_urls allows, 503 if native push\nis unavailable here.",
+        "description": "Register a native device for the caller, or refresh the one\nregistered under this installation_id (see PushSubscriptionRepository.upsert_native). 400 if\nrelay_url is not one push.relay_urls allows, 503 if native push\nis unavailable here.",
         "operationId": "register_native_subscription_alerts_subscriptions_native_post",
         "requestBody": {
           "content": {
@@ -12351,7 +13248,7 @@
         ]
       },
       "post": {
-        "description": "Create an event. With attendees, the calendar needs a linked\nidentity -- MailVerdict sends the invitations itself over its outbox\nrather than leaving the server's own scheduling engine to do it.",
+        "description": "Create an event. With attendees, the calendar needs a linked\nidentity -- MailVerdict sends the invitations itself over its outbox\nrather than leaving the server's own scheduling engine to do it.\n\nWith a `uid` the create is idempotent per calendar: an event already\nholding that uid is answered as it is, with 200 instead of 201 and\nnothing sent or changed, so a retry never makes a second one. `response`\nis filled in by FastAPI; a direct call (the MCP tool) leaves it out.",
         "operationId": "create_event_calendar_events_post",
         "requestBody": {
           "content": {
@@ -14448,6 +15345,124 @@
         "summary": "Get Me",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/me/access-keys": {
+      "get": {
+        "description": "The caller's own access keys, read-only. A key is signed out with\nPOST /api/me/sign-ins/{sign_in_id}/revoke.",
+        "operationId": "list_own_access_keys_me_access_keys_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccessKeyResponse"
+                  },
+                  "title": "Response List Own Access Keys Me Access Keys Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Own Access Keys",
+        "tags": [
+          "access-keys"
+        ]
+      }
+    },
+    "/me/sign-ins": {
+      "get": {
+        "description": "The caller's sign-ins, live ones first, most recently seen first.",
+        "operationId": "list_own_sign_ins_me_sign_ins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SignInResponse"
+                  },
+                  "title": "Response List Own Sign Ins Me Sign Ins Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Own Sign Ins",
+        "tags": [
+          "sign-ins"
+        ]
+      }
+    },
+    "/me/sign-ins/current/revoke": {
+      "post": {
+        "description": "Sign out the phone or browser making this request, and delete the\npush subscriptions registered under it: what a phone app calls at\nsign-out, while it still holds its token. Its next request is refused.\n400 for a machine client, whose subject would stay refused for good --\nan access key is signed out from the list or by an admin.",
+        "operationId": "revoke_current_sign_in_me_sign_ins_current_revoke_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Revoke Current Sign In",
+        "tags": [
+          "sign-ins"
+        ]
+      }
+    },
+    "/me/sign-ins/{sign_in_id}/revoke": {
+      "post": {
+        "description": "Revoke one of the caller's sign-ins -- the current one included,\nwhose next request is then refused. 403 for someone else's.",
+        "operationId": "revoke_own_sign_in_me_sign_ins__sign_in_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sign_in_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sign In Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Own Sign In",
+        "tags": [
+          "sign-ins"
         ]
       }
     },

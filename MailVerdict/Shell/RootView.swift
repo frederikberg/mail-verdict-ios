@@ -155,6 +155,8 @@ private struct ConnectedShell: View {
             ImageExceptionsScreen(accountId: accountId, environment: environment, connection: connection)
         case .identities(let accountId):
             IdentitiesScreen(accountId: accountId, environment: environment, connection: connection)
+        case .accessKeys:
+            AccessKeysScreen(environment: environment, connection: connection)
         }
     }
 }

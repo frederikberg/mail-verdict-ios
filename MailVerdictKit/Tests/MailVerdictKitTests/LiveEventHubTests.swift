@@ -125,6 +125,10 @@ final class LiveEventHubMappingTests: XCTestCase {
         )
     }
 
+    func testAccessKeyChangedInvalidatesTheAccessKeys() {
+        XCTAssertEqual(LiveEventHub.mapRecord(record("access_key.changed")), .accessKeysChanged)
+    }
+
     func testCalendarObjectInvalidatesTheInvitationCard() {
         XCTAssertEqual(LiveEventHub.mapRecord(record("calendar.object")), .invitationOrEventChanged)
     }
@@ -157,7 +161,7 @@ final class LiveEventHubMappingTests: XCTestCase {
             "folder.changed", "outbox.updated", "settings.changed", "identity.changed",
             "calendar.account", "calendar.collection", "calendar.links_changed", "calendar.object",
             "contact.collection", "contact.object", "pipeline.document_changed", "pipeline.notify",
-            "pipeline.run_finished", "order.updated",
+            "pipeline.run_finished", "order.updated", "access_key.changed",
         ]
         XCTAssertEqual(covered, Set(SSEEventName.allCases.map(\.rawValue)))
     }

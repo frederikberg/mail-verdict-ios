@@ -340,6 +340,8 @@ public final class LiveEventHub {
             return .orderChanged(orderId: json.uuid("order_id"), change: json.string("change"))
         case .calendarObject:
             return .invitationOrEventChanged
+        case .accessKeyChanged:
+            return .accessKeysChanged
         case .calendarAccount, .calendarCollection, .calendarLinksChanged, .contactCollection,
             .contactObject, .pipelineDocumentChanged, .pipelineNotify, .pipelineRunFinished:
             return .ignored(name)
