@@ -130,5 +130,8 @@ public enum ContractRegistry {
         // Me.swift
         MeResponse.self,
         AuthConfigResponse.self,
+        // AccessKey.swift
+        AccessResponse.self,
+        AccessKeyResponse.self,
     ]
 }

@@ -57,6 +57,7 @@ struct SettingsScreen: View {
                     }
                     LabeledContent("Role", value: me.isAdmin ? "Administrator" : "User")
                 }
+                NavigationLink("Access Keys", value: Route.accessKeys)
                 Button("Sign Out", role: .destructive) {
                     environment.signOut()
                 }

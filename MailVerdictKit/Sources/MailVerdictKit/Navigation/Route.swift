@@ -86,4 +86,5 @@ public enum Route: Hashable, Codable, Sendable {
     case folderOrder(UUID)
     case imageExceptions(UUID)
     case identities(UUID)
+    case accessKeys
 }

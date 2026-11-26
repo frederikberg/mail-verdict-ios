@@ -1,8 +1,9 @@
 import Foundation
 
 /// `GET /api/me` — who the token belongs to. `role` is the effective one (the instance owner is an
-/// admin whatever the users table says), which is all the app needs to decide whether to offer
-/// admin screens.
+/// admin whatever the users table says, a scoped access key never is), which is all the app needs
+/// to decide whether to offer admin screens. `access` is what this sign-in may do; a server without
+/// access keys sends none.
 public struct MeResponse: ContractModel, Codable, Sendable, Equatable {
     public static let schemaName = "MeResponse"
     public enum ContractKeys: String, CodingKey, CaseIterable {
@@ -11,6 +12,7 @@ public struct MeResponse: ContractModel, Codable, Sendable, Equatable {
         case displayName = "display_name"
         case role
         case disabled
+        case access
     }
     public typealias CodingKeys = ContractKeys
 
@@ -24,13 +26,18 @@ public struct MeResponse: ContractModel, Codable, Sendable, Equatable {
     public let displayName: String
     public let role: Role
     public let disabled: Bool
+    public let access: AccessResponse?
 
-    public init(userId: UUID, email: String?, displayName: String, role: Role, disabled: Bool) {
+    public init(
+        userId: UUID, email: String?, displayName: String, role: Role, disabled: Bool,
+        access: AccessResponse? = nil
+    ) {
         self.userId = userId
         self.email = email
         self.displayName = displayName
         self.role = role
         self.disabled = disabled
+        self.access = access
     }
 
     public var isAdmin: Bool { role == .admin }

@@ -1,4 +1,5 @@
 [
+  "access_key.changed",
   "account.changed",
   "alert.dismissed",
   "alert.new",

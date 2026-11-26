@@ -29,6 +29,10 @@ sign-in in the server's device list (best effort, a few seconds at most), then r
 token at the identity provider and clears the phone, push keys included, and a server that revokes the device from its list signs the app out the next
 time it asks, with the message "This device was signed out".
 
+Settings > Access Keys lists the agents, scripts and other clients that sign in as you (the
+server's access keys), what each may do, and signs one out; attaching a key and changing what it
+may do happen on the web.
+
 ## Reading offline
 
 Mail you have opened and the lists you have visited stay readable without the server: on a plane,
