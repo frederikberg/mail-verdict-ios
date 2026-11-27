@@ -20,12 +20,13 @@ extension UIImage {
     }
 }
 
+/// `Label(_:image:)` rather than a custom icon view: a `Menu` renders only the two built-in forms.
 extension Label where Title == Text, Icon == Image {
     init(_ title: String, mvSymbol name: String) {
-        self.init {
-            Text(title)
-        } icon: {
-            Image(mvSymbol: name)
+        if MVSymbols.custom.contains(name) {
+            self.init(title, image: name)
+        } else {
+            self.init(title, systemImage: name)
         }
     }
 }
