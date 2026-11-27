@@ -20,11 +20,24 @@ extension UIImage {
     }
 }
 
-/// `Label(_:image:)` rather than a custom icon view: a `Menu` renders only the two built-in forms.
 extension Label where Title == Text, Icon == Image {
     init(_ title: String, mvSymbol name: String) {
         if MVSymbols.custom.contains(name) {
             self.init(title, image: name)
+        } else {
+            self.init(title, systemImage: name)
+        }
+    }
+
+    /// For an item of a SwiftUI `Menu`: the icon is handed over as a `UIImage`, since a custom
+    /// symbol loaded by name does not reach the menu UIKit draws.
+    init(_ title: String, menuSymbol name: String) {
+        if MVSymbols.custom.contains(name), let image = UIImage(named: name) {
+            self.init {
+                Text(title)
+            } icon: {
+                Image(uiImage: image)
+            }
         } else {
             self.init(title, systemImage: name)
         }
