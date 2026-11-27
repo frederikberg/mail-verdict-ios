@@ -48,8 +48,8 @@ curl -sS --max-time 3 "http://127.0.0.1:8765/routes" -o artifacts/routes.json ||
 # proves the process is alive and proves nothing about the screen. Settle before the
 # screenshot, same reasoning as every other screenshot workflow in this family.
 sleep 6
-xcrun simctl io "$udid" screenshot artifacts/screen-root.png
-bytes=$(stat -f %z artifacts/screen-root.png)
+sim_screenshot "$udid" artifacts/screen-root.png
+bytes=$(file_bytes artifacts/screen-root.png)
 echo "root: ${bytes} bytes"
 if [ "$bytes" -le 20000 ]; then
   echo "::warning::screenshot suspiciously small — the screen may be blank"
@@ -152,7 +152,7 @@ while IFS= read -r id; do
     # and whether the main actor itself ever answers tells "pushed but its view never
     # appeared" apart from "nothing will ever appear, the main actor is stuck", which a
     # bridge route answering from its own queue (every other one here) cannot.
-    xcrun simctl io "$udid" screenshot "artifacts/screen-$id-notready.png" || true
+    sim_screenshot "$udid" "artifacts/screen-$id-notready.png" || true
     probe=$(curl -sS --max-time 3 "http://127.0.0.1:8765/main-actor-probe" 2>/dev/null || echo "")
     if [ -n "$probe" ]; then
       echo "screen $id: main-actor-probe answered: $probe"
@@ -161,8 +161,8 @@ while IFS= read -r id; do
     fi
     fail=1
   else
-    xcrun simctl io "$udid" screenshot "artifacts/screen-$id.png"
-    bytes=$(stat -f %z "artifacts/screen-$id.png")
+    sim_screenshot "$udid" "artifacts/screen-$id.png"
+    bytes=$(file_bytes "artifacts/screen-$id.png")
     echo "$id: ${bytes} bytes"
     if [ "$bytes" -le 20000 ]; then
       echo "::warning::screenshot for '$id' suspiciously small — the screen may be blank"
