@@ -29,10 +29,13 @@ extension Label where Title == Text, Icon == Image {
         }
     }
 
-    /// For an item of a SwiftUI `Menu`: the icon is handed over as a `UIImage`, since a custom
-    /// symbol loaded by name does not reach the menu UIKit draws.
+    /// For an item of a SwiftUI `Menu`: the icon is handed over as a template `UIImage` at the
+    /// body text size, since a custom symbol loaded by name does not reach the menu UIKit draws.
     init(_ title: String, menuSymbol name: String) {
-        if MVSymbols.custom.contains(name), let image = UIImage(named: name) {
+        if MVSymbols.custom.contains(name),
+            let image = UIImage(named: name, in: .main, with: UIImage.SymbolConfiguration(textStyle: .body))?
+                .withRenderingMode(.alwaysTemplate)
+        {
             self.init {
                 Text(title)
             } icon: {
