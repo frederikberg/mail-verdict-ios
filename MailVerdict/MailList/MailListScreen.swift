@@ -362,7 +362,7 @@ struct MailListScreen: View {
         Button {
             bulk(bulkAction)
         } label: {
-            Label(action.title, systemImage: action.symbol)
+            Label(action.title, mvSymbol: action.symbol)
         }
     }
 

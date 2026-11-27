@@ -86,7 +86,7 @@ final class SpamReviewStoreTests: XCTestCase {
             {"success":true,"message_id":"\(a)","is_spam":true,"message":null}
             """
         MVStubURLProtocol.stub = .init(statusCode: 200, headers: [:], body: Data(feedbackJSON.utf8))
-        try await store.decide(store.items[0], agree: true)
+        try await store.decide(store.items[0], isSpam: true)
 
         XCTAssertEqual(store.items, [])
     }
@@ -102,7 +102,7 @@ final class SpamReviewStoreTests: XCTestCase {
 
         MVStubURLProtocol.stub = .init(
             statusCode: 200, headers: [:], body: Data(#"{"success":true,"message_id":"\#(a)","is_spam":true}"#.utf8))
-        let result = await store.decideAll(agree: true)
+        let result = await store.decideAll(isSpam: true)
 
         XCTAssertEqual(result.attempted, 2)
         XCTAssertEqual(result.succeeded, 2)

@@ -1135,9 +1135,9 @@ public final class MVMailListStore: ReaderListSource, LiveEventSubscriber, MVInt
     public func perform(_ action: MVMessageUIAction, on rowId: UUID, target: MVMoveTarget? = nil) {
         guard let row = row(id: rowId) else { return }
         switch action {
-        case .confirmVerdict, .correctVerdict:
-            guard let verdict = row.verdictIsSpam else { return }
-            sendVerdictFeedback(row, isSpam: action == .confirmVerdict ? verdict : !verdict)
+        case .notSpam, .spam:
+            guard row.verdictIsSpam != nil else { return }
+            sendVerdictFeedback(row, isSpam: action == .spam)
             return
         case .archive where isInArchive(row):
             toasts?.show(MVToast(variant: .info, message: "Already in Archive", duration: 3))

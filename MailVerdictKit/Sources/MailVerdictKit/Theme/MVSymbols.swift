@@ -21,8 +21,13 @@ public enum MVSymbols {
     public static let moveTo = "folder"
     public static let moveToJunk = "xmark.bin"
     public static let notJunk = "tray.and.arrow.up"
-    public static let confirmVerdict = "hand.thumbsup"
-    public static let correctVerdict = "hand.thumbsdown"
+    /// A face with a halo. Custom symbol in the app's asset catalog, not an SF Symbol.
+    public static let notSpam = "mv.notspam"
+    /// A face with horns. Custom symbol in the app's asset catalog, not an SF Symbol.
+    public static let spam = "mv.spam"
+    /// The names above that live in the asset catalog: drawn with `Image(_:)` / `UIImage(named:)`
+    /// rather than `systemName:`.
+    public static let custom: Set<String> = [notSpam, spam]
     public static let findInMessage = "text.magnifyingglass"
     public static let remoteImages = "photo"
     public static let darkBackground = "moon"

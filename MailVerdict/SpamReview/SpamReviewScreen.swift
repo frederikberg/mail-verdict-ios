@@ -2,7 +2,7 @@ import MailVerdictKit
 import SwiftUI
 
 /// The verdict queue — every message the classifier currently calls spam with no ruling yet,
-/// thumbs, swipes and Accept/Reject All.
+/// Not Spam / Spam buttons, swipes and All Good / All Spam.
 struct SpamReviewScreen: View {
     let environment: AppEnvironment
     let connection: AppEnvironment.Connection
@@ -13,8 +13,8 @@ struct SpamReviewScreen: View {
     @State private var isDeciding = false
 
     private enum PendingBulk: Identifiable {
-        case accept
-        case reject
+        case notSpam
+        case spam
         var id: Self { self }
     }
 
@@ -31,10 +31,18 @@ struct SpamReviewScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("Accept All") { pendingBulk = .accept }
-                            .disabled(store.items.isEmpty || store.isBulkRunning)
-                        Button("Reject All") { pendingBulk = .reject }
-                            .disabled(store.items.isEmpty || store.isBulkRunning)
+                        Button {
+                            pendingBulk = .notSpam
+                        } label: {
+                            Label("All Good", mvSymbol: MVSymbols.notSpam)
+                        }
+                        .disabled(store.items.isEmpty || store.isBulkRunning)
+                        Button {
+                            pendingBulk = .spam
+                        } label: {
+                            Label("All Spam", mvSymbol: MVSymbols.spam)
+                        }
+                        .disabled(store.items.isEmpty || store.isBulkRunning)
                     } label: {
                         Image(systemName: MVSymbols.options)
                     }
@@ -42,21 +50,20 @@ struct SpamReviewScreen: View {
             }
             .alert(item: $pendingBulk) { bulk in
                 switch bulk {
-                case .accept:
+                case .spam:
                     Alert(
-                        title: Text("Confirm \(store.items.count) messages as spam?"),
-                        message: Text(
-                            "Records agreement with the classifier for every message currently listed. Nothing moves."),
-                        primaryButton: .default(Text("Accept All")) { Task { await runBulk(agree: true) } },
+                        title: Text("Mark \(store.items.count) messages as spam?"),
+                        message: Text("Rules every message currently listed spam and moves it to Junk."),
+                        primaryButton: .default(Text("All Spam")) { Task { await runBulk(isSpam: true) } },
                         secondaryButton: .cancel()
                     )
-                case .reject:
+                case .notSpam:
                     Alert(
-                        title: Text("Correct \(store.items.count) messages?"),
+                        title: Text("Mark \(store.items.count) messages as not spam?"),
                         message: Text(
-                            "Records a correction for every message currently listed, and moves any of them still sitting in Junk back to the inbox."
+                            "Rules every message currently listed not spam, and moves any of them sitting in Junk back to the inbox."
                         ),
-                        primaryButton: .default(Text("Reject All")) { Task { await runBulk(agree: false) } },
+                        primaryButton: .default(Text("All Good")) { Task { await runBulk(isSpam: false) } },
                         secondaryButton: .cancel()
                     )
                 }
@@ -98,15 +105,15 @@ struct SpamReviewScreen: View {
         }
     }
 
-    /// Not a `Button` wrapping the whole row: the two thumbs need their own independent tap
+    /// Not a `Button` wrapping the whole row: Not Spam and Spam need their own independent tap
     /// targets, which a `Button` nested inside another `Button`'s label cannot reliably give —
-    /// `onTapGesture` on the row's own content shape opens the reader instead, and a thumb's tap
+    /// `onTapGesture` on the row's own content shape opens the reader instead, and a button's tap
     /// is consumed by its own `Button` before it ever reaches that gesture.
     private func row(for item: SpamReviewItem) -> some View {
         SpamReviewRow(
             item: item, accountChip: accounts.count > 1 ? accountName(for: item.accountId) : nil,
-            onConfirmSpam: { Task { await decide(item, agree: true) } },
-            onNotSpam: { Task { await decide(item, agree: false) } }
+            onNotSpam: { Task { await decide(item, isSpam: false) } },
+            onSpam: { Task { await decide(item, isSpam: true) } }
         )
         .contentShape(Rectangle())
         .onTapGesture {
@@ -114,10 +121,10 @@ struct SpamReviewScreen: View {
         }
         .disabled(isDeciding)
         .swipeActions(edge: .leading) {
-            Button("Not Spam") { Task { await decide(item, agree: false) } }.tint(.green)
+            Button("Not Spam") { Task { await decide(item, isSpam: false) } }.tint(.green)
         }
         .swipeActions(edge: .trailing) {
-            Button("Spam") { Task { await decide(item, agree: true) } }.tint(.red)
+            Button("Spam") { Task { await decide(item, isSpam: true) } }.tint(.red)
         }
     }
 
@@ -125,40 +132,41 @@ struct SpamReviewScreen: View {
         accounts.first { $0.id == accountId }?.name
     }
 
-    private func decide(_ item: SpamReviewItem, agree: Bool) async {
+    private func decide(_ item: SpamReviewItem, isSpam: Bool) async {
         isDeciding = true
-        try? await store.decide(item, agree: agree)
+        try? await store.decide(item, isSpam: isSpam)
         isDeciding = false
     }
 
-    private func runBulk(agree: Bool) async {
-        let result = await store.decideAll(agree: agree)
+    private func runBulk(isSpam: Bool) async {
+        let result = await store.decideAll(isSpam: isSpam)
         let toast: MVToast
         if result.failed > 0 {
             toast = MVToast(
                 variant: .error,
-                message: "\(result.failed) of \(result.attempted) could not be \(agree ? "confirmed" : "corrected")",
+                message:
+                    "\(result.failed) of \(result.attempted) could not be marked as \(isSpam ? "spam" : "not spam")",
                 duration: 0
             )
         } else {
             toast = MVToast(
                 variant: .success,
                 message: "\(result.succeeded) message\(result.succeeded == 1 ? "" : "s") "
-                    + (agree ? "confirmed as spam" : "corrected")
+                    + (isSpam ? "marked as spam" : "marked as not spam")
             )
         }
         environment.toasts.show(toast)
     }
 }
 
-/// One review row — sender, Junk/account chips, subject, the model's reasoning, and the two
-/// thumbs. Not `MailRowView`: this screen has its own anatomy, with no avatar and a reasoning
+/// One review row — sender, Junk/account chips, subject, the model's reasoning, and Not Spam /
+/// Spam. Not `MailRowView`: this screen has its own anatomy, with no avatar and a reasoning
 /// line instead of a snippet.
 private struct SpamReviewRow: View {
     let item: SpamReviewItem
     let accountChip: String?
-    let onConfirmSpam: () -> Void
     let onNotSpam: () -> Void
+    let onSpam: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -190,12 +198,12 @@ private struct SpamReviewRow: View {
                     Text(modelUsed).font(.caption2).foregroundStyle(.tertiary)
                 }
                 Spacer()
-                Button(action: onConfirmSpam) {
-                    Label("Yes, spam", systemImage: MVSymbols.confirmVerdict).labelStyle(.iconOnly)
+                Button(action: onNotSpam) {
+                    Label("Not Spam", mvSymbol: MVSymbols.notSpam).labelStyle(.iconOnly)
                 }
                 .buttonStyle(.borderless)
-                Button(action: onNotSpam) {
-                    Label("Not spam", systemImage: MVSymbols.correctVerdict).labelStyle(.iconOnly)
+                Button(action: onSpam) {
+                    Label("Spam", mvSymbol: MVSymbols.spam).labelStyle(.iconOnly)
                 }
                 .buttonStyle(.borderless)
             }

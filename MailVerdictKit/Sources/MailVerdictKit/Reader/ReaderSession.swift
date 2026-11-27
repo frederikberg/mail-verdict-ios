@@ -624,14 +624,13 @@ public final class ReaderSession {
             MVIntentRequest(accountId: message.accountId, action: starred ? .flag : .unflag, messageIds: [message.id]))
     }
 
-    /// 👍 confirms the verdict, 👎 corrects it — one feedback call either way, as on the web. A
-    /// ruling can move the message, so the page re-reads its conversation afterwards.
-    public func sendVerdictFeedback(confirming: Bool) async {
-        guard let message = currentPrimary, let verdict = message.verdict else { return }
+    /// Not Spam / Spam on a message with a verdict — one feedback call either way, as on the web.
+    /// A ruling can move the message, so the page re-reads its conversation afterwards.
+    public func sendVerdictFeedback(isSpam: Bool) async {
+        guard let message = currentPrimary, message.verdict != nil else { return }
         do {
             _ = try await api.submitFeedback(
-                messageId: message.id, accountId: message.accountId,
-                isSpam: confirming ? verdict.isSpam : !verdict.isSpam)
+                messageId: message.id, accountId: message.accountId, isSpam: isSpam)
             refresh(currentRowId)
         } catch {
             onToast?(

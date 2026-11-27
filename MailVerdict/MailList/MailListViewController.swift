@@ -498,7 +498,7 @@ final class MailListViewController: UIViewController, UITableViewDelegate {
             MainActor.assumeIsolated { self?.run(deleteAction, on: row) }
             completion(deleteAction == .delete)
         }
-        delete.image = UIImage(systemName: deleteAction.symbol)
+        delete.image = UIImage.mvSymbol(deleteAction.symbol)
         let options = UIContextualAction(style: .normal, title: "Options") { [weak self] _, _, completion in
             MainActor.assumeIsolated { self?.actions.showOptions(row) }
             completion(true)
@@ -540,7 +540,7 @@ final class MailListViewController: UIViewController, UITableViewDelegate {
         let sections: [UIMenuElement] = groups.map { group in
             let items = group.actions.map { action in
                 UIAction(
-                    title: action.title, image: UIImage(systemName: action.symbol),
+                    title: action.title, image: UIImage.mvSymbol(action.symbol),
                     attributes: action.isDestructive ? [.destructive] : []
                 ) { [weak self] _ in
                     MainActor.assumeIsolated { self?.run(action, on: row) }

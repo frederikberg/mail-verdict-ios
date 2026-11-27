@@ -72,8 +72,8 @@ public enum MVMessageUIAction: Sendable, Equatable {
     case reply
     case replyAll
     case forward
-    case confirmVerdict
-    case correctVerdict
+    case notSpam
+    case spam
     case markRead
     case markUnread
     case star
@@ -119,7 +119,7 @@ public enum MessageActionSet {
         ]
 
         if context.verdict != nil {
-            groups.append(MVMessageActionGroup(kind: .verdict, actions: [.confirmVerdict, .correctVerdict]))
+            groups.append(MVMessageActionGroup(kind: .verdict, actions: [.notSpam, .spam]))
         }
 
         var state: [MVMessageUIAction] = [
@@ -131,7 +131,8 @@ public enum MessageActionSet {
         // yet supported server-side -- offering the control would just answer
         // success=false. Everything else here (read/star/move/delete forever)
         // works the same whether the message is live or in the glacier.
-        if !context.isInGlacier {
+        // A message with a verdict has Not Spam / Spam above, which rule it the same way.
+        if !context.isInGlacier && context.verdict == nil {
             state.append(context.isInJunk ? .notJunk : .moveToJunk)
         }
         // Archive exists in the swipe and context menu only — the reader has it in its own
@@ -150,7 +151,7 @@ public enum MessageActionSet {
             tools.append(context.canvasIsDark ? .lightBackground : .darkBackground)
             tools.append(.shareMessageFile)
             // The assistant reads the message from the mailbox, which a glaciered one is not in.
-            if !context.isInGlacier {
+            if !context.isInGlacier && context.verdict == nil {
                 tools.append(.addRule)
             }
             if context.source == .search || context.source == .spamReview || context.source == .order {
