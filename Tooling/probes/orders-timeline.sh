@@ -30,6 +30,6 @@ if not state.get("markerVisible") or offset is None:
 if abs(offset) > row:
     raise SystemExit(f"::error::the Today marker sits {offset}pt from the middle of the viewport (more than one row, {row}pt)")
 PY
-  xcrun simctl io "$udid" screenshot artifacts/screen-orders-timeline-probe.png
+  sim_screenshot "$udid" artifacts/screen-orders-timeline-probe.png
 fi
 terminate_and_wait

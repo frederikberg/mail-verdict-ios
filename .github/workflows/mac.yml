@@ -308,10 +308,11 @@ jobs:
         run: |
           mkdir -p artifacts
           udid="${{ steps.sim.outputs.udid }}"
+          . Tooling/sim/lib.sh
           xcrun simctl launch "$udid" com.frederikberg.mailverdict
           sleep 8
-          xcrun simctl io "$udid" screenshot artifacts/screen.png
-          bytes=$(stat -f %z artifacts/screen.png)
+          sim_screenshot "$udid" artifacts/screen.png
+          bytes=$(file_bytes artifacts/screen.png)
           echo "screenshot is $bytes bytes"
           [ "$bytes" -gt 20000 ] || { echo 'suspiciously small — the screen may be blank'; exit 1; }
 

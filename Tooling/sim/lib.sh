@@ -40,3 +40,31 @@ sim_wait_booted() {
 sim_find_app() {
   find "$1/Build/Products" -name '*.app' -maxdepth 3 | head -1
 }
+
+# Screenshots the simulator into $2. A simulator with more than one display makes
+# `simctl io screenshot` refuse without `--display`; each display then goes to
+# `<name>-display<id>.png` and the largest of them is copied to $2.
+sim_screenshot() {
+  local udid=$1 out=$2 err ids d f bytes best="" best_bytes=0
+  if err=$(xcrun simctl io "$udid" screenshot "$out" 2>&1); then return 0; fi
+  ids=$(printf '%s\n' "$err" | sed -n 's/.*--display=\([0-9][0-9]*\).*/\1/p')
+  if [ -z "$ids" ]; then
+    printf '%s\n' "$err" >&2
+    return 1
+  fi
+  for d in $ids; do
+    f="${out%.png}-display$d.png"
+    xcrun simctl io "$udid" screenshot --display="$d" "$f" > /dev/null 2>&1 || continue
+    bytes=$(stat -f %z "$f")
+    if [ "$bytes" -gt "$best_bytes" ]; then
+      best=$f
+      best_bytes=$bytes
+    fi
+  done
+  [ -n "$best" ] && cp "$best" "$out"
+}
+
+# Size of a file in bytes, 0 when it does not exist.
+file_bytes() {
+  stat -f %z "$1" 2> /dev/null || echo 0
+}
