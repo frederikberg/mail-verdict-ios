@@ -176,8 +176,8 @@ final class ReaderScreenModel {
         switch action {
         case .reply, .replyAll, .forward:
             environment.presentedCompose = session.composeIntent(for: action)
-        case .confirmVerdict, .correctVerdict:
-            Task { await session.sendVerdictFeedback(confirming: action == .confirmVerdict) }
+        case .notSpam, .spam:
+            Task { await session.sendVerdictFeedback(isSpam: action == .spam) }
         case .markRead, .markUnread:
             Task { await session.setRead(action == .markRead) }
         case .star, .unstar:

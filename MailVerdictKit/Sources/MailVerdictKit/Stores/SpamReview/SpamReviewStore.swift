@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// The result of a bulk Accept All / Reject All run — the toast text depends on whether
+/// The result of a bulk All Good / All Spam run — the toast text depends on whether
 /// everything succeeded.
 public struct MVSpamReviewBulkResult: Sendable, Equatable {
     public let succeeded: Int
@@ -65,12 +65,12 @@ public final class SpamReviewStore {
         reportDebugState()
     }
 
-    /// Thumb up (`agree: true`) confirms the spam verdict; thumb down (`agree: false`) corrects
-    /// it — one call does both the record and the move regardless of where the message currently
-    /// sits (a message the pipeline never moved is already in the inbox, so a reject there is a
-    /// no-op move, not a special case to route around). Removes the row on success either way.
-    public func decide(_ item: SpamReviewItem, agree: Bool) async throws {
-        _ = try await apiClient.submitFeedback(messageId: item.messageId, accountId: item.accountId, isSpam: agree)
+    /// Rules the message spam or not spam — one call does both the record and the move
+    /// regardless of where the message currently sits (a message the pipeline never moved is
+    /// already in the inbox, so not spam there is a no-op move, not a special case to route
+    /// around). Removes the row on success either way.
+    public func decide(_ item: SpamReviewItem, isSpam: Bool) async throws {
+        _ = try await apiClient.submitFeedback(messageId: item.messageId, accountId: item.accountId, isSpam: isSpam)
         items.removeAll { $0.messageId == item.messageId }
         reportDebugState()
     }
@@ -78,7 +78,7 @@ public final class SpamReviewStore {
     /// "Everything currently listed" — the loaded batch, not the whole matching set: verdicts are
     /// corrected one at a time server-side and there is nothing like a bulk-action scope for this
     /// query, the same reasoning `spam-review-page.tsx` documents.
-    public func decideAll(agree: Bool) async -> MVSpamReviewBulkResult {
+    public func decideAll(isSpam: Bool) async -> MVSpamReviewBulkResult {
         let batch = items
         isBulkRunning = true
         var succeeded = 0
@@ -86,7 +86,7 @@ public final class SpamReviewStore {
             for item in batch {
                 group.addTask { [apiClient] in
                     (try? await apiClient.submitFeedback(
-                        messageId: item.messageId, accountId: item.accountId, isSpam: agree
+                        messageId: item.messageId, accountId: item.accountId, isSpam: isSpam
                     )) != nil
                 }
             }

@@ -8,8 +8,8 @@ extension MVMessageUIAction {
         case .reply: return "Reply"
         case .replyAll: return "Reply All"
         case .forward: return "Forward"
-        case .confirmVerdict: return "Confirm Verdict"
-        case .correctVerdict: return "Correct Verdict"
+        case .notSpam: return "Not Spam"
+        case .spam: return "Spam"
         case .markRead: return "Mark as Read"
         case .markUnread: return "Mark as Unread"
         case .star: return "Star"
@@ -32,14 +32,14 @@ extension MVMessageUIAction {
         }
     }
 
-    /// The SF Symbol for the action (`Theme/MVSymbols.swift` owns the names).
+    /// The symbol for the action (`Theme/MVSymbols.swift` owns the names; some are custom).
     public var symbol: String {
         switch self {
         case .reply: return MVSymbols.reply
         case .replyAll: return MVSymbols.replyAll
         case .forward: return MVSymbols.forward
-        case .confirmVerdict: return MVSymbols.confirmVerdict
-        case .correctVerdict: return MVSymbols.correctVerdict
+        case .notSpam: return MVSymbols.notSpam
+        case .spam: return MVSymbols.spam
         case .markRead: return MVSymbols.markRead
         case .markUnread: return MVSymbols.markUnread
         case .star: return MVSymbols.star

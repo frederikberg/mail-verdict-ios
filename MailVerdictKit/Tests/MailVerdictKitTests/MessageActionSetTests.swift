@@ -35,7 +35,18 @@ final class MessageActionSetTests: XCTestCase {
         let groups = MessageActionSet.actions(
             for: context(surface: .swipeSheet, verdict: MVMessageVerdictContext(isSpam: true, modelUsed: "gpt"))
         )
-        XCTAssertEqual(actions(groups, in: .verdict), [.confirmVerdict, .correctVerdict])
+        XCTAssertEqual(actions(groups, in: .verdict), [.notSpam, .spam])
+    }
+
+    /// Not Spam / Spam rule the message the same way the Junk toggle does, so a message with a
+    /// verdict shows only the pair.
+    func testJunkToggleGivesWayToTheVerdictPair() {
+        let verdict = MVMessageVerdictContext(isSpam: false, modelUsed: "gpt")
+        for isInJunk in [false, true] {
+            let groups = MessageActionSet.actions(
+                for: context(surface: .swipeSheet, isInJunk: isInJunk, verdict: verdict))
+            XCTAssertEqual(actions(groups, in: .state), [.markRead, .star, .moveTo, .archive])
+        }
     }
 
     func testStateGroupTogglesReadStarAndJunk() {

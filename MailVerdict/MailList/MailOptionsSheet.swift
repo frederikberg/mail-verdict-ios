@@ -59,7 +59,7 @@ struct MailOptionsSheet: View {
                             choose(action)
                         } label: {
                             VStack(spacing: 4) {
-                                Image(systemName: action.symbol).font(.title3)
+                                Image(mvSymbol: action.symbol).font(.title3)
                                 Text(action.title).font(.caption).lineLimit(1)
                             }
                             .frame(maxWidth: .infinity, minHeight: 44)
@@ -80,7 +80,7 @@ struct MailOptionsSheet: View {
                     Button(role: action.isDestructive ? .destructive : nil) {
                         choose(action)
                     } label: {
-                        Label(action.title, systemImage: action.symbol)
+                        Label(action.title, mvSymbol: action.symbol)
                     }
                     .foregroundStyle(
                         action.isDestructive ? AnyShapeStyle(MVPalette.destructive) : AnyShapeStyle(.primary)
