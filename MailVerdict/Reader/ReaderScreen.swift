@@ -334,7 +334,7 @@ struct ReaderOptionsMenuContent: View {
         } label: {
             Label(
                 action.readerTitle(senderEmail: model.senderEmail, senderDomain: model.senderDomain),
-                mvSymbol: action.symbol)
+                menuSymbol: action.symbol)
         }
     }
 }
